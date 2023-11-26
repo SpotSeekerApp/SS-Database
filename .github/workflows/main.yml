@@ -1,0 +1,29 @@
+name: Push data
+
+on:
+  push:
+    branches: 
+      - 'data-push'
+      - 'data-push/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.21.4' ]
+    name: Go ${{ matrix.go }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Test Workdir
+        run: |
+          echo "Current working dir:" "$(pwd)" 
+          echo "Test Config:" "${FIREBASE_CONFIG}"
+      - name: Install dependencies
+        run: go get .
+      - name: Build
+        run: go build -v ./...

@@ -1,4 +1,4 @@
-package main
+package data
 
 import (
 	firebase "firebase.google.com/go"
@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+
 	opt := option.WithCredentialsFile("./credential-token.json")
 	app, err := initializeApp(opt)
 	if err != nil {
@@ -19,15 +20,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	_, _, err = client.Collection("users").Add(ctx, map[string]interface{}{
-		"first":  "Mert",
-		"middle": "Mathison",
-		"last":   "Turing",
-		"born":   1912,
-	})
-	if err != nil {
-		log.Fatalf("Failed adding aturing: %v", err)
-	}
+
 	defer client.Close()
 }
 

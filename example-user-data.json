@@ -1,8 +1,7 @@
 {
-  "name": "0",
-  "fields" : {
-    "name": "Mert",
-    "surname": "Arabaci",
-    "born": "09.07.2001"
-  }
+  "user_id": "10",
+  "name" : "Mert",
+  "surname": "Arabaci",
+  "born": "09.07.2001",
+  "email": "mertcarabaci.gmail.com"
 }

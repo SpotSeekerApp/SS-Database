@@ -6,125 +6,58 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
 	"log"
 )
 
-type UserController struct {
-	Id             string            `firebase:"userId"`
-	Name           string            `firebase:"name"`
-	Surname        string            `firebase:"surname"`
-	Born           string            `firebase:"born"`
-	Email          string            `firebase:"email"`
-	FavoritePlaces map[string]string `firebase:"favorite_places"`
+type PlaceController struct {
+	Id          string `firebase:"placeId"`
+	Name        string `firebase:"placeName"`
+	Location    string `firebase:"location"`
+	Link2Photo  string `firebase:"link2Photo"`
+	PhoneNumber string `firebase:"phoneNumber"`
+	InitReview  string `firebase:"initReview"`
 }
 
-type Feedback struct {
-	Name    string            `json:"name"`
-	PlaceId string            `json:"place_id"`
-	Fields  map[string]string `json:"fields"`
-}
+func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	placeInfo := new(types.PlaceRequest)
+	err := json.Unmarshal(data, placeInfo)
+	fmt.Println(placeInfo)
 
-func (s UserController) AddUser(ctx context.Context, client *firestore.Client, data []byte) error {
-	userInfo := new(types.UserRequest)
-	err := json.Unmarshal(data, &userInfo)
-	fmt.Println(*userInfo)
-
-	_, err = client.Collection("Users").Doc(userInfo.Id).Create(ctx, map[string]interface{}{
-		"name":    userInfo.Name,
-		"surname": userInfo.Surname,
-		"born":    userInfo.Born,
-		"email":   userInfo.Email,
+	_, err = client.Doc("Places/"+placeInfo.Id).Create(ctx, map[string]interface{}{
+		"place_name":   placeInfo.Name,
+		"location":     placeInfo.Location,
+		"photo_link":   placeInfo.Link2Photo,
+		"phone_number": placeInfo.PhoneNumber,
 	})
 	if err != nil {
-		log.Fatalf("Failed adding user: %v", err)
+		log.Fatalf("Failed adding users: %v", err)
+		return codes.Aborted
 	}
 
-	return err
+	return codes.OK
 }
 
-func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) error {
-	favReqInfo := new(types.FavoritePlaceRequest)
-	err := json.Unmarshal(data, &favReqInfo)
-	fmt.Println(*favReqInfo)
+func (s PlaceController) AddReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	placeInfo := new(types.ReviewRequest)
+	err := json.Unmarshal(data, placeInfo)
+	fmt.Println(placeInfo)
 
-	ref := client.Collection("Users").Doc(favReqInfo.UserId)
+	ref := client.Doc("Places/" + placeInfo.PlaceId)
+	if ref == nil {
+		return codes.NotFound
+	}
+	ref = client.Doc("Places/" + placeInfo.PlaceId + "/Reviews/" + placeInfo.ReviewId)
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-
-		doc, err := tx.Get(ref)
-		if err != nil {
-			return err
-		}
-		var userdata UserController
-		_ = doc.DataTo(&userdata)
-
-		fmt.Println(userdata.FavoritePlaces)
-		if userdata.FavoritePlaces == nil {
-			userdata.FavoritePlaces = map[string]string{favReqInfo.PlaceId: favReqInfo.PlaceName}
-		} else {
-			userdata.FavoritePlaces[favReqInfo.PlaceId] = favReqInfo.PlaceName
-			if err != nil {
-				return err
-			}
-		}
-		return tx.Set(ref, map[string]interface{}{
-			"favorite_places": userdata.FavoritePlaces,
-		}, firestore.MergeAll)
-
+		return tx.Create(ref, map[string]interface{}{
+			"comment": placeInfo.Comment,
+			"rating":  placeInfo.Rating,
+		})
 	})
 	if err != nil {
 		// Handle any errors appropriately in this section.
 		log.Printf("An error has occurred: %s", err)
+		return codes.Aborted
 	}
-
-	return err
+	return codes.OK
 }
-
-func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) error {
-	favReqInfo := new(types.FavoritePlaceRequest)
-	err := json.Unmarshal(data, &favReqInfo)
-	fmt.Println(*favReqInfo)
-
-	ref := client.Collection("Users").Doc(favReqInfo.UserId)
-	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		doc, err := tx.Get(ref) // tx.Get, NOT ref.Get!
-		if err != nil {
-			return err
-		}
-		var userdata UserController
-		_ = doc.DataTo(&userdata)
-		fmt.Println(userdata.FavoritePlaces)
-
-		delete(userdata.FavoritePlaces, favReqInfo.PlaceId)
-		fmt.Println(userdata.FavoritePlaces)
-		return tx.Set(ref, map[string]interface{}{
-			"favorite_places": userdata.FavoritePlaces,
-		}, firestore.Merge(firestore.FieldPath{"favorite_places"}))
-
-	})
-	if err != nil {
-		// Handle any errors appropriately in this section.
-		log.Printf("An error has occurred: %s", err)
-	}
-
-	return err
-}
-
-//func (s User) AddReview(ctx context.Context, client *firestore.Client, data []byte) error {
-//	var err error
-//
-//	feedback := Feedback{}
-//	err = json.Unmarshal(data, &feedback)
-//	fmt.Println(feedback)
-//
-//	ref := client.Doc("Users/" + feedback.Name + "/Feedbacks/" + feedback.PlaceId)
-//	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-//		return tx.Create(ref, feedback.Fields)
-//	})
-//	if err != nil {
-//		// Handle any errors appropriately in this section.
-//		log.Printf("An error has occurred: %s", err)
-//	}
-//
-//	return err
-//}
-//

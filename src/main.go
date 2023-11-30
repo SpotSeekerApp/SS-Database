@@ -2,7 +2,8 @@ package main
 
 import (
 	"SS-Database/lib/handlers"
-	"SS-Database/lib/user"
+	ssPlaces "SS-Database/lib/places"
+	"SS-Database/lib/users"
 	firebase "firebase.google.com/go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
@@ -16,34 +17,18 @@ type DataBaseAPI struct {
 }
 
 func main() {
-	app := DataBaseAPI{HandlerIns: handlers.HandlerInstance{}}
+	app := DataBaseAPI{}
 	err := app.createClient()
 	if err != nil {
 		log.Fatalf("Failed adding aturing: %v", err)
 	}
-	app.HandlerIns.UserController = user.User{}
+	app.HandlerIns.UserController = users.UserController{}
+	app.HandlerIns.PlaceController = ssPlaces.PlaceController{}
 
-	//data, _ := os.ReadFile("./example-data.json")
-	//
-	//err = app.HandlerIns.UserController.AddUser(context.Background(), app.HandlerIns.Client, data)
-	//if err != nil {
-	//	log.Fatalf("Failed adding aturing: %v", err)
-	//}
-	//err := userIns.AddFavoritePlace(context.Background(), client, data)
-	//if err != nil {
-	//	log.Fatalf("Failed adding aturing: %v", err)
-	//}
-
-	//err := userIns.RemoveFavoritePlace(context.Background(), client, data)
-	//if err != nil {
-	//	log.Fatalf("Failed adding aturing: %v", err)
-	//}
-	//err := userIns.AddReview(context.Background(), client, data)
-	//if err != nil {
-	//	log.Fatalf("Failed adding aturing: %v", err)
-	//}
 	log.Print("starting server...")
-	http.HandleFunc("/AddUser", app.HandlerIns.UserHandler)
+	http.HandleFunc("/AddUser", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/AddPlace", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/AddReview", app.HandlerIns.HandleRequest)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")

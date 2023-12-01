@@ -1,0 +1,48 @@
+name: Push data
+
+on:
+  push:
+    branches: 
+      - 'feature/**'
+      - 'main'
+
+env:
+  # Setting an environment variable with the value of a configuration variable
+  GOOGLE_APPLICATION_CREDENTIALS: ${{ vars.GOOGLE_APPLICATION_CREDENTIALS }}
+  ProjectID: ${{ vars.ProjectID }}
+
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+    # Add "id-token" with the intended permissions.
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          version: '>= 455.0.0'
+          project_id: 'mert-personal'
+
+      - name: 'Use gcloud CLI'
+        run: 'gcloud info && echo $(pwd)'
+
+      - id: 'deploy'
+        uses: 'google-github-actions/deploy-cloudrun@v1'
+        with:
+          service: 'ssdatabase-api'
+          source: ./
+          region: 'europe-west10'
+
+      - name: 'Use output'
+        run: 'echo "${{ steps.deploy.outputs.url }}"'

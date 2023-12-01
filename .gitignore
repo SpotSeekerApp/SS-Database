@@ -159,4 +159,4 @@ cython_debug/
 #.idea/
 *.exe
 .idea*
-./credential-token.json
+credential-token.json

@@ -1,5 +1,7 @@
 {
-  "user_id": 0,
-  "user_name" : "Aybikezey213",
-  "email": "aybikezey@gmail.com"
+  "user_id": "10",
+  "name" : "Mert",
+  "surname": "Arabaci",
+  "born": "09.07.2001",
+  "email": "mertcarabaci.gmail.com"
 }

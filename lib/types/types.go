@@ -11,11 +11,10 @@ type UserRequest struct {
 	PlaceName      string
 }
 
-type FeedbackRequest struct {
-	FeedbackId int
-	UserId     int               `json:"user_id"`
-	PlaceId    string            `json:"place_id"`
-	Rating     map[string]string `json:"rating"`
+type FavoritePlaceRequest struct {
+	UserId    string `json:"user_id"`
+	PlaceId   string `json:"place_id"`
+	PlaceName string
 }
 
 type PlaceRequest struct {

@@ -1,0 +1,10 @@
+version: '1.0'
+services:
+  app:
+    container_name: ss-database
+    tty: true
+    build: .
+    ports:
+      - "8080:8080"
+    restart: on-failure
+    

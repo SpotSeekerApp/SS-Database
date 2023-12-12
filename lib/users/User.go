@@ -2,6 +2,7 @@ package users
 
 import (
 	types "SS-Database/lib/types"
+	"SS-Database/utils"
 	"cloud.google.com/go/firestore"
 	"encoding/json"
 	"fmt"
@@ -9,33 +10,83 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"log"
+	"strconv"
 )
 
 type UserController struct {
-	Id             string            `firebase:"userId"`
-	Name           string            `firebase:"name"`
-	Surname        string            `firebase:"surname"`
-	Born           string            `firebase:"born"`
-	Email          string            `firebase:"email"`
-	FavoritePlaces map[string]string `firebase:"favorite_places"`
+	UserID         int
+	UserName       string
+	Email          string
+	FavoritePlaces map[string]string
+}
+
+func (s UserController) findNextID(ctx context.Context, client *firestore.Client) int {
+	var userdata UserController
+	iter := client.Collection("Users").OrderBy("userID", firestore.Desc).Limit(1).Documents(ctx)
+	q, _ := iter.GetAll()
+	if q == nil {
+		return 0
+	} else {
+		_ = q[0].DataTo(&userdata)
+		return userdata.UserID + 1
+	}
+}
+
+func (s UserController) checkEmail(ctx context.Context, client *firestore.Client, newEmail string) codes.Code {
+	iter := client.Collection("Users").Select("email").Documents(ctx)
+	q, _ := iter.GetAll()
+	for _, s := range q {
+		if s.Data()["email"] == newEmail {
+			return codes.AlreadyExists
+		}
+	}
+	return codes.OK
 }
 
 func (s UserController) AddUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	userInfo := new(types.UserRequest)
-	err := json.Unmarshal(data, userInfo)
+	_ = json.Unmarshal(data, userInfo)
 	fmt.Println(userInfo)
 
-	_, err = client.Collection("Users").Doc(userInfo.Id).Create(ctx, map[string]interface{}{
-		"name":    userInfo.Name,
-		"surname": userInfo.Surname,
-		"born":    userInfo.Born,
-		"email":   userInfo.Email,
+	errCode := s.checkEmail(ctx, client, userInfo.Email)
+	if errCode != codes.OK {
+		return errCode
+	}
+	userInfo.UserId = s.findNextID(ctx, client)
+
+	_, err := client.Collection("Users").Doc(strconv.Itoa(userInfo.UserId)).Create(ctx, map[string]interface{}{
+		"userID":   userInfo.UserId,
+		"userName": userInfo.UserName,
+		"email":    userInfo.Email,
 	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
 		return codes.Aborted
 	}
 
+	return codes.OK
+}
+
+func (s UserController) UpdateUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	userInfo := new(types.UserRequest)
+	err := json.Unmarshal(data, userInfo)
+	if err != nil {
+		log.Printf("Failed removing user: %v", err)
+		return codes.Aborted
+	}
+
+	docSnap, err := client.Collection("Users").Doc(strconv.Itoa(userInfo.UserId)).Get(ctx)
+	if err != nil {
+		log.Printf("Failed removing user: User not found")
+		return codes.NotFound
+	}
+
+	_, err = docSnap.Ref.Update(ctx, utils.ExtractNonEmptyFields(*userInfo))
+
+	if err != nil {
+		log.Printf("Failed removing user: %v", err)
+		return codes.Aborted
+	}
 	return codes.OK
 }
 
@@ -109,4 +160,46 @@ func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firesto
 	}
 
 	return codes.OK
+}
+
+func (s UserController) AddFeedback(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	feedbackInfo := new(types.FeedbackRequest)
+	err := json.Unmarshal(data, feedbackInfo)
+	fmt.Println(feedbackInfo)
+
+	ref := client.Doc("Users/" + feedbackInfo.UserId)
+	if ref == nil {
+		return codes.NotFound
+	}
+	ref = client.Doc("Users/" + feedbackInfo.UserId + "/Feedbacks/" + feedbackInfo.PlaceId)
+	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		return tx.Create(ref, map[string]interface{}{
+			"rating": feedbackInfo.Rating,
+		})
+	})
+	if err != nil {
+		// Handle any errors appropriately in this section.
+		log.Printf("An error has occurred: %s", err)
+		return codes.Aborted
+	}
+	return codes.OK
+}
+
+func (s UserController) GetAllUsers(ctx context.Context, client *firestore.Client) ([]byte, codes.Code) {
+	docRefs, err := client.Collection("Users").DocumentRefs(ctx).GetAll()
+	if err != nil {
+		return []byte{}, codes.NotFound
+	}
+
+	resp := map[int]types.UserRequest{}
+
+	for _, docRef := range docRefs {
+		data, _ := docRef.Get(ctx)
+		var userData types.UserRequest
+		_ = data.DataTo(&userData)
+		resp[userData.UserId] = userData
+	}
+
+	jsonStr, err := json.Marshal(resp)
+	return jsonStr, codes.OK
 }

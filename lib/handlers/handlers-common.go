@@ -14,20 +14,16 @@ type HandlerInstance struct {
 	Client          *firestore.Client
 }
 
-const userReqTypes = "user"
+const userReqTypes = "user|update|getall"
 const placeReqTypes = "place|review"
 
 func (h HandlerInstance) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	reqPath := strings.ToLower(r.URL.Path)
-	var err http.ConnState
 
 	if utils.SubstrInList(reqPath, userReqTypes) {
-		err = h.UserHandler(w, r)
+		h.UserHandler(w, r)
 	} else if utils.SubstrInList(reqPath, placeReqTypes) {
-		err = h.PlaceHandler(w, r)
-	} else {
-		err = http.StatusNotImplemented
+		h.PlaceHandler(w, r)
 	}
-	w.WriteHeader(int(err))
 }

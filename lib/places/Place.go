@@ -11,7 +11,7 @@ import (
 )
 
 type PlaceController struct {
-	Id          string `firebase:"placeId"`
+	PlaceId     string `firebase:"placeId"`
 	Name        string `firebase:"placeName"`
 	Location    string `firebase:"location"`
 	Link2Photo  string `firebase:"link2Photo"`
@@ -24,11 +24,12 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 	err := json.Unmarshal(data, placeInfo)
 	fmt.Println(placeInfo)
 
-	_, err = client.Doc("Places/"+placeInfo.Id).Create(ctx, map[string]interface{}{
-		"place_name":   placeInfo.Name,
-		"location":     placeInfo.Location,
-		"photo_link":   placeInfo.Link2Photo,
-		"phone_number": placeInfo.PhoneNumber,
+	_, err = client.Doc("Places/"+placeInfo.PlaceId).Create(ctx, map[string]interface{}{
+		"placeId":     placeInfo.PlaceId,
+		"placeName":   placeInfo.PlaceName,
+		"location":    placeInfo.Location,
+		"photoLink":   placeInfo.Link2Photo,
+		"phoneNumber": placeInfo.PhoneNumber,
 	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
@@ -36,6 +37,38 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 	}
 
 	return codes.OK
+}
+
+func (s PlaceController) GetPlaceName(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	placeInfo := new(types.PlaceRequest)
+	err := json.Unmarshal(data, placeInfo)
+	fmt.Println(placeInfo)
+
+	q := client.Collection("Places").Where("placeId", "==", placeInfo.PlaceId).Select("placeName")
+	ref, err := q.Documents(ctx).GetAll()
+	name, _ := ref[0].DataAtPath(firestore.FieldPath{"placeName"})
+	if err != nil {
+		//log.Fatalf("Failed adding users: %v", err)
+		return []byte{}, codes.Aborted
+	}
+	jsonStr, _ := json.Marshal(name)
+	return jsonStr, codes.OK
+}
+
+func (s PlaceController) GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	placeInfo := new(types.PlaceRequest)
+	err := json.Unmarshal(data, placeInfo)
+	fmt.Println(placeInfo)
+
+	q := client.Collection("Places").Where("placeId", "==", placeInfo.PlaceId)
+	ref, err := q.Documents(ctx).GetAll()
+	_ = ref[0].DataTo(placeInfo)
+	if err != nil {
+		//log.Fatalf("Failed adding users: %v", err)
+		return []byte{}, codes.Aborted
+	}
+	jsonStr, _ := json.Marshal(placeInfo)
+	return jsonStr, codes.OK
 }
 
 func (s PlaceController) AddReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code {

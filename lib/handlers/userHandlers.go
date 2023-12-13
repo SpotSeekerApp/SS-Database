@@ -60,6 +60,10 @@ func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request,
 		err = utils.MapErrorCode(h.UserController.UpdateUser(context.Background(), h.Client, data))
 	} else if function == "RemoveUser" {
 		err = utils.MapErrorCode(h.UserController.RemoveUser(context.Background(), h.Client, data))
+	} else if function == "AddFavoritePlace" {
+		err = utils.MapErrorCode(h.UserController.AddFavoritePlace(context.Background(), h.Client, data))
+	} else if function == "RemoveFavoritePlace" {
+		err = utils.MapErrorCode(h.UserController.RemoveFavoritePlace(context.Background(), h.Client, data))
 	} else {
 		return http.StatusNotImplemented
 	}

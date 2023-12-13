@@ -181,7 +181,7 @@ func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.
 	_ = json.Unmarshal(placeData, placeInfo)
 	fmt.Println(favReqInfo)
 
-	ref := client.Collection("Users").Doc(favReqInfo.UserId)
+	ref := client.Collection("Users").Doc(strconv.Itoa(favReqInfo.UserId))
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 
 		doc, err := tx.Get(ref)
@@ -219,7 +219,7 @@ func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firesto
 	err := json.Unmarshal(data, favReqInfo)
 	fmt.Println(favReqInfo)
 
-	ref := client.Collection("Users").Doc(favReqInfo.UserId)
+	ref := client.Collection("Users").Doc(strconv.Itoa(favReqInfo.UserId))
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(ref) // tx.Get, NOT ref.Get!
 		if err != nil {

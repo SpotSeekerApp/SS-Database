@@ -1,6 +1,7 @@
 package users
 
 import (
+	place "SS-Database/lib/places"
 	types "SS-Database/lib/types"
 	"SS-Database/utils"
 	"cloud.google.com/go/firestore"
@@ -91,28 +92,32 @@ func (s UserController) UpdateUser(ctx context.Context, client *firestore.Client
 }
 
 func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
-	favReqInfo := new(types.FavoritePlaceRequest)
+	favReqInfo := new(types.UserRequest)
+	var placeName string
+	place := place.PlaceController{}
+	placeData, _ := place.GetPlaceName(ctx, client, data)
 	err := json.Unmarshal(data, &favReqInfo)
+	_ = json.Unmarshal(placeData, &placeName)
 	fmt.Println(favReqInfo)
 
-	ref := client.Collection("Users").Doc(favReqInfo.UserId)
+	ref := client.Collection("Users").Doc(strconv.Itoa(favReqInfo.UserId))
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 
 		doc, err := tx.Get(ref)
 		if err != nil {
 			return err
 		}
-		var userdata UserController
+		var userdata types.UserRequest
 		_ = doc.DataTo(&userdata)
 
 		fmt.Println(userdata.FavoritePlaces)
 		if userdata.FavoritePlaces == nil {
-			userdata.FavoritePlaces = map[string]string{favReqInfo.PlaceId: favReqInfo.PlaceName}
+			userdata.FavoritePlaces = map[string]string{favReqInfo.PlaceId: placeName}
 		} else {
-			userdata.FavoritePlaces[favReqInfo.PlaceId] = favReqInfo.PlaceName
+			userdata.FavoritePlaces[favReqInfo.PlaceId] = placeName
 		}
 		return tx.Set(ref, map[string]interface{}{
-			"favorite_places": userdata.FavoritePlaces,
+			"favoritePlaces": userdata.FavoritePlaces,
 		}, firestore.MergeAll)
 
 	})
@@ -129,25 +134,25 @@ func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.
 }
 
 func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
-	favReqInfo := new(types.FavoritePlaceRequest)
+	favReqInfo := new(types.UserRequest)
 	err := json.Unmarshal(data, favReqInfo)
 	fmt.Println(favReqInfo)
 
-	ref := client.Collection("Users").Doc(favReqInfo.UserId)
+	ref := client.Collection("Users").Doc(strconv.Itoa(favReqInfo.UserId))
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(ref) // tx.Get, NOT ref.Get!
 		if err != nil {
 			return err
 		}
-		var userdata UserController
+		var userdata types.UserRequest
 		_ = doc.DataTo(&userdata)
 		fmt.Println(userdata.FavoritePlaces)
 
 		delete(userdata.FavoritePlaces, favReqInfo.PlaceId)
 		fmt.Println(userdata.FavoritePlaces)
 		return tx.Set(ref, map[string]interface{}{
-			"favorite_places": userdata.FavoritePlaces,
-		}, firestore.Merge(firestore.FieldPath{"favorite_places"}))
+			"favoritePlaces": userdata.FavoritePlaces,
+		}, firestore.Merge(firestore.FieldPath{"favoritePlaces"}))
 
 	})
 	if status.Code(err) == codes.NotFound {

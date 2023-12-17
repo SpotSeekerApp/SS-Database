@@ -17,6 +17,7 @@ import (
 
 type UserController struct {
 	UserID         int
+	FeedbackId     int
 	UserName       string
 	Email          string
 	FavoritePlaces map[string]string
@@ -24,12 +25,16 @@ type UserController struct {
 
 func (s UserController) findNextID(ctx context.Context, client *firestore.Client, path string, id string) int {
 	var userdata UserController
+
 	iter := client.Collection(path).OrderBy(id, firestore.Desc).Limit(1).Documents(ctx)
 	q, _ := iter.GetAll()
 	if q == nil {
 		return 0
 	} else {
 		_ = q[0].DataTo(&userdata)
+		if id == "feedbackId" {
+			return userdata.FeedbackId + 1
+		}
 		return userdata.UserID + 1
 	}
 }
@@ -242,23 +247,18 @@ func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firesto
 
 func (s UserController) AddFeedback(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	feedbackInfo := new(types.FeedbackRequest)
-	fmt.Println(feedbackInfo)
+
 	err := json.Unmarshal(data, feedbackInfo)
+	fmt.Println(feedbackInfo)
 
-	feedbackPath := "Users/" + strconv.Itoa(feedbackInfo.UserId) + "/Feedbacks/"
-	feedbackInfo.FeedbackId = s.findNextID(ctx, client,
-		feedbackPath, "feedbackId")
+	feedbackPath := "Users/" + strconv.Itoa(feedbackInfo.UserId) + "/Feedbacks"
+	feedbackInfo.FeedbackId = s.findNextID(ctx, client, feedbackPath, "feedbackId")
 
-	ref := client.Doc("Users/" + strconv.Itoa(feedbackInfo.UserId))
-	if ref == nil {
-		return codes.NotFound
-	}
-	ref = client.Doc(feedbackPath + strconv.Itoa(feedbackInfo.FeedbackId))
-	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		return tx.Create(ref, map[string]interface{}{
-			"rating": feedbackInfo.Rating,
-		})
+	_, err = client.Doc(feedbackPath+"/"+strconv.Itoa(feedbackInfo.FeedbackId)).Create(ctx, map[string]interface{}{
+		"feedbackId": feedbackInfo.FeedbackId,
+		"rating":     feedbackInfo.Rating,
 	})
+
 	if err != nil {
 		// Handle any errors appropriately in this section.
 		log.Printf("An error has occurred: %s", err)

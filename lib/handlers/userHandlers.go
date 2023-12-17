@@ -50,7 +50,13 @@ func (h HandlerInstance) UserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request, function string) http.ConnState {
-	req := new(types.UserRequest)
+	var req any
+	if function == "AddFeedback" {
+		req = new(types.FeedbackRequest)
+	} else {
+		req = new(types.UserRequest)
+	}
+
 	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
 		return http.StatusBadRequest
 	}
@@ -68,6 +74,8 @@ func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request,
 		err = utils.MapErrorCode(h.UserController.AddFavoritePlace(context.Background(), h.Client, data))
 	} else if function == "RemoveFavoritePlace" {
 		err = utils.MapErrorCode(h.UserController.RemoveFavoritePlace(context.Background(), h.Client, data))
+	} else if function == "AddFeedback" {
+		err = utils.MapErrorCode(h.UserController.AddFeedback(context.Background(), h.Client, data))
 	} else {
 		return http.StatusNotImplemented
 	}

@@ -5,8 +5,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 )
+
+const BATCH_SIZE = 5
 
 func MapErrorCode(rpcResponse codes.Code) http.ConnState {
 	switch rpcResponse {
@@ -22,6 +25,29 @@ func MapErrorCode(rpcResponse codes.Code) http.ConnState {
 		return http.StatusNotImplemented
 	}
 }
+
+func FindDigitCount(num int) int {
+	count := 0
+	for {
+		num /= 10
+		count += 1
+		if num == 0 {
+			break
+		}
+	}
+	return count
+}
+
+func NumberToString(num int, maxDigit any) string {
+	maxDigitCount := FindDigitCount(int(maxDigit.(int64)))
+	digitCount := FindDigitCount(num)
+	var zeros string
+	for i := 0; i < maxDigitCount-digitCount; i++ {
+		zeros += "0"
+	}
+	return zeros + strconv.Itoa(num)
+}
+
 func SubstrInList(str string, list string) bool {
 	subStrList := strings.Split(list, "|")
 	for _, s := range subStrList {

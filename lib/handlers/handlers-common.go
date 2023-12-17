@@ -14,7 +14,7 @@ type HandlerInstance struct {
 	Client          *firestore.Client
 }
 
-const userReqTypes = "user|update|getall"
+const userReqTypes = "user|feedback"
 const placeReqTypes = "place|review"
 
 func (h HandlerInstance) HandleRequest(w http.ResponseWriter, r *http.Request) {

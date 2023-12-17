@@ -30,8 +30,11 @@ func main() {
 	http.HandleFunc("/UpdateUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/RemoveUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddPlace", app.HandlerIns.HandleRequest)
-	http.HandleFunc("/AddReview", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/GetPlaceInfo", app.HandlerIns.HandleRequest)
+	//http.HandleFunc("/AddReview", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetAllUsers", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/AddFavoritePlace", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/RemoveFavoritePlace", app.HandlerIns.HandleRequest)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")

@@ -1,15 +1,12 @@
 package types
 
 type UserRequest struct {
-	UserId   int    `json:"user_id" firebase:"userID"`
-	UserName string `json:"user_name" firebase:"userName"`
-	Email    string `json:"email" firebase:"email"`
-}
-
-type FavoritePlaceRequest struct {
-	UserId    string `json:"user_id"`
-	PlaceId   string `json:"place_id"`
-	PlaceName string
+	UserId         int               `json:"user_id" firebase:"userID"`
+	UserName       string            `json:"user_name" firebase:"userName"`
+	Email          string            `json:"email" firebase:"email"`
+	FavoritePlaces map[string]string `json:"favorite_places" firebase:"favoritePlaces"`
+	PlaceId        string            `json:"place_id" firebase:"placeId"`
+	PlaceName      string
 }
 
 type FeedbackRequest struct {
@@ -19,8 +16,8 @@ type FeedbackRequest struct {
 }
 
 type PlaceRequest struct {
-	Id          string `json:"place_id"`
-	Name        string `json:"place_name"`
+	PlaceId     string `json:"place_id"`
+	PlaceName   string `json:"place_name"`
 	Location    string `json:"location"`
 	Link2Photo  string `json:"photo_link"`
 	PhoneNumber string `json:"phone_number"`

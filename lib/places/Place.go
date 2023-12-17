@@ -11,12 +11,13 @@ import (
 )
 
 type PlaceController struct {
-	PlaceId     string `firebase:"placeId"`
-	Name        string `firebase:"placeName"`
-	Location    string `firebase:"location"`
-	Link2Photo  string `firebase:"link2Photo"`
-	PhoneNumber string `firebase:"phoneNumber"`
-	InitReview  string `firebase:"initReview"`
+	PlaceId    string `firebase:"placeId"`
+	Name       string `firebase:"placeName"`
+	Link       string `firebase:"location"`
+	Link2Photo string `firebase:"link2Photo"`
+	InitReview string `firebase:"initReview"`
+	Category   string
+	Rating     float32
 }
 
 func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {

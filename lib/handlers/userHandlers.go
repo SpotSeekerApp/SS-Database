@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -16,8 +17,11 @@ type UserInterface interface {
 	AddUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	RemoveUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	UpdateUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code
+	GetUserInfo(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	ReturnPassword(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
 	AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	RemoveFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
+	AddFeedback(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	GetAllUsers(ctx context.Context, client *firestore.Client) ([]byte, codes.Code)
 }
 
@@ -72,17 +76,26 @@ func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request,
 }
 
 func (h HandlerInstance) GETUserHandler(w http.ResponseWriter, r *http.Request, function string) ([]byte, http.ConnState) {
-	//req := new(types.UserRequest)
-	//if err := json.NewDecoder(r.Body).Decode(req); err != nil {
-	//	return http.StatusBadRequest
-	//}
-	//data, _ := json.Marshal(req)
-	//fmt.Println(data)
+	req := make(map[string]int)
 
 	var err http.ConnState
 	var res []byte
 	if function == "GetAllUsers" {
 		resTemp, errTemp := h.UserController.GetAllUsers(context.Background(), h.Client)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "GetUserInfo" {
+		req["user_id"], _ = strconv.Atoi(r.URL.Query()["user_id"][0])
+		data, _ := json.Marshal(req)
+		fmt.Println(req)
+		resTemp, errTemp := h.UserController.GetUserInfo(context.Background(), h.Client, data)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "ReturnPassword" {
+		req["user_id"], _ = strconv.Atoi(r.URL.Query()["user_id"][0])
+		data, _ := json.Marshal(req)
+		fmt.Println(req)
+		resTemp, errTemp := h.UserController.ReturnPassword(context.Background(), h.Client, data)
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else {

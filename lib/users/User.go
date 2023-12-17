@@ -22,9 +22,9 @@ type UserController struct {
 	FavoritePlaces map[string]string
 }
 
-func (s UserController) findNextID(ctx context.Context, client *firestore.Client) int {
+func (s UserController) findNextID(ctx context.Context, client *firestore.Client, path string, id string) int {
 	var userdata UserController
-	iter := client.Collection("Users").OrderBy("userID", firestore.Desc).Limit(1).Documents(ctx)
+	iter := client.Collection(path).OrderBy(id, firestore.Desc).Limit(1).Documents(ctx)
 	q, _ := iter.GetAll()
 	if q == nil {
 		return 0
@@ -54,12 +54,13 @@ func (s UserController) AddUser(ctx context.Context, client *firestore.Client, d
 	if errCode != codes.OK {
 		return errCode
 	}
-	userInfo.UserId = s.findNextID(ctx, client)
+	userInfo.UserId = s.findNextID(ctx, client, "Users", "userID")
 
 	_, err := client.Collection("Users").Doc(strconv.Itoa(userInfo.UserId)).Create(ctx, map[string]interface{}{
 		"userID":   userInfo.UserId,
 		"userName": userInfo.UserName,
 		"email":    userInfo.Email,
+		"password": userInfo.Password,
 	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
@@ -129,6 +130,38 @@ func (s UserController) UpdateUser(ctx context.Context, client *firestore.Client
 		return codes.Aborted
 	}
 	return codes.OK
+}
+
+func (s UserController) GetUserInfo(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	userInfo := new(types.UserRequest)
+	err := json.Unmarshal(data, userInfo)
+	fmt.Println(userInfo)
+
+	q := client.Collection("Users").Where("userID", "==", userInfo.UserId)
+	ref, err := q.Documents(ctx).GetAll()
+	_ = ref[0].DataTo(userInfo)
+	if err != nil {
+		//log.Fatalf("Failed adding users: %v", err)
+		return []byte{}, codes.Aborted
+	}
+	jsonStr, _ := json.Marshal(userInfo)
+	return jsonStr, codes.OK
+}
+
+func (s UserController) ReturnPassword(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	userInfo := new(types.UserRequest)
+	fmt.Println(userInfo)
+	err := json.Unmarshal(data, userInfo)
+
+	q := client.Collection("Users").Where("userID", "==", userInfo.UserId).Select("password")
+	ref, err := q.Documents(ctx).GetAll()
+	password, _ := ref[0].DataAtPath(firestore.FieldPath{"password"})
+	if err != nil {
+		//log.Fatalf("Failed adding users: %v", err)
+		return []byte{}, codes.Aborted
+	}
+	jsonStr, _ := json.Marshal(password)
+	return jsonStr, codes.OK
 }
 
 func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
@@ -209,14 +242,18 @@ func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firesto
 
 func (s UserController) AddFeedback(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	feedbackInfo := new(types.FeedbackRequest)
-	err := json.Unmarshal(data, feedbackInfo)
 	fmt.Println(feedbackInfo)
+	err := json.Unmarshal(data, feedbackInfo)
 
-	ref := client.Doc("Users/" + feedbackInfo.UserId)
+	feedbackPath := "Users/" + strconv.Itoa(feedbackInfo.UserId) + "/Feedbacks/"
+	feedbackInfo.FeedbackId = s.findNextID(ctx, client,
+		feedbackPath, "feedbackId")
+
+	ref := client.Doc("Users/" + strconv.Itoa(feedbackInfo.UserId))
 	if ref == nil {
 		return codes.NotFound
 	}
-	ref = client.Doc("Users/" + feedbackInfo.UserId + "/Feedbacks/" + feedbackInfo.PlaceId)
+	ref = client.Doc(feedbackPath + strconv.Itoa(feedbackInfo.FeedbackId))
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		return tx.Create(ref, map[string]interface{}{
 			"rating": feedbackInfo.Rating,
@@ -234,6 +271,10 @@ func (s UserController) GetAllUsers(ctx context.Context, client *firestore.Clien
 	docRefs, err := client.Collection("Users").OrderBy("userID", firestore.Asc).Documents(ctx).GetAll()
 	if err != nil {
 		return []byte{}, codes.NotFound
+	}
+
+	if len(docRefs) == 0 {
+		return []byte{}, codes.OK
 	}
 
 	resp := map[string]types.UserRequest{}

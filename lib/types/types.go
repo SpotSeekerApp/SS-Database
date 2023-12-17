@@ -6,13 +6,15 @@ type UserRequest struct {
 	Email          string            `json:"email" firebase:"email"`
 	FavoritePlaces map[string]string `json:"favorite_places" firebase:"favoritePlaces"`
 	PlaceId        string            `json:"place_id" firebase:"placeId"`
+	Password       string            `json:"password" firebase:"password"`
 	PlaceName      string
 }
 
 type FeedbackRequest struct {
-	UserId  string            `json:"user_id"`
-	PlaceId string            `json:"place_id"`
-	Rating  map[string]string `json:"rating"`
+	FeedbackId int
+	UserId     int               `json:"user_id"`
+	PlaceId    string            `json:"place_id"`
+	Rating     map[string]string `json:"rating"`
 }
 
 type PlaceRequest struct {

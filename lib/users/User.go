@@ -252,7 +252,10 @@ func (s UserController) AddFeedback(ctx context.Context, client *firestore.Clien
 	feedbackInfo := new(types.FeedbackRequest)
 
 	err := json.Unmarshal(data, feedbackInfo)
-	fmt.Println(feedbackInfo)
+
+	feedbackPath := "Users/" + strconv.Itoa(feedbackInfo.UserId) + "/Feedbacks/"
+	feedbackInfo.FeedbackId = s.findNextID(ctx, client,
+		feedbackPath, "feedbackId")
 
 	feedbackPath := "Users/" + strconv.Itoa(feedbackInfo.UserId) + "/Feedbacks"
 	feedbackInfo.FeedbackId = s.findNextID(ctx, client, feedbackPath, "feedbackId")

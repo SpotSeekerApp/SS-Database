@@ -1,0 +1,7 @@
+{
+    "place_id": "str",
+    "place_name": "str",
+    "main_category": "str",
+    "tags": ["str1", "str2", "str3", "str4", "str5"],
+    "link": "str"
+}

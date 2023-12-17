@@ -28,6 +28,7 @@ func main() {
 	log.Print("starting server...")
 	http.HandleFunc("/AddUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/UpdateUser", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/RemoveUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddPlace", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddReview", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetAllUsers", app.HandlerIns.HandleRequest)

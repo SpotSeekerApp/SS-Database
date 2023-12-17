@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang.org/x/net/context"
+	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"log"
@@ -64,6 +65,45 @@ func (s UserController) AddUser(ctx context.Context, client *firestore.Client, d
 		return codes.Aborted
 	}
 
+	return codes.OK
+}
+
+func (s UserController) RemoveUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	userInfo := new(types.UserRequest)
+	fmt.Println(userInfo)
+	_ = json.Unmarshal(data, userInfo)
+	ref := client.Collection("Users").Doc(strconv.Itoa(userInfo.UserId))
+	userReview := ref.Collection("Feedbacks")
+	bulkWriter := client.BulkWriter(ctx)
+
+	for {
+		// Get a batch of documents
+		iter := userReview.Limit(utils.BATCH_SIZE).Documents(ctx)
+		numDeleted := 0
+
+		// Iterate through the documents, adding
+		// a delete operation for each one to the BulkWriter.
+		for {
+			doc, err := iter.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				break
+			}
+			bulkWriter.Delete(doc.Ref)
+			numDeleted++
+		}
+		if numDeleted == 0 {
+			bulkWriter.End()
+			break
+		}
+		bulkWriter.Flush()
+	}
+	bulkWriter = client.BulkWriter(ctx)
+	bulkWriter.Delete(ref)
+	bulkWriter.End()
+	bulkWriter.Flush()
 	return codes.OK
 }
 
@@ -186,18 +226,17 @@ func (s UserController) AddFeedback(ctx context.Context, client *firestore.Clien
 }
 
 func (s UserController) GetAllUsers(ctx context.Context, client *firestore.Client) ([]byte, codes.Code) {
-	docRefs, err := client.Collection("Users").DocumentRefs(ctx).GetAll()
+	docRefs, err := client.Collection("Users").OrderBy("userID", firestore.Asc).Documents(ctx).GetAll()
 	if err != nil {
 		return []byte{}, codes.NotFound
 	}
 
-	resp := map[int]types.UserRequest{}
-
+	resp := map[string]types.UserRequest{}
+	maxDigit, _ := docRefs[len(docRefs)-1].DataAt("userID")
 	for _, docRef := range docRefs {
-		data, _ := docRef.Get(ctx)
 		var userData types.UserRequest
-		_ = data.DataTo(&userData)
-		resp[userData.UserId] = userData
+		_ = docRef.DataTo(&userData)
+		resp[utils.NumberToString(userData.UserId, maxDigit)] = userData
 	}
 
 	jsonStr, err := json.Marshal(resp)

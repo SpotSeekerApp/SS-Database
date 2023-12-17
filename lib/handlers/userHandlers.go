@@ -14,6 +14,7 @@ import (
 
 type UserInterface interface {
 	AddUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code
+	RemoveUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	UpdateUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	RemoveFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
@@ -57,6 +58,8 @@ func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request,
 		err = utils.MapErrorCode(h.UserController.AddUser(context.Background(), h.Client, data))
 	} else if function == "UpdateUser" {
 		err = utils.MapErrorCode(h.UserController.UpdateUser(context.Background(), h.Client, data))
+	} else if function == "RemoveUser" {
+		err = utils.MapErrorCode(h.UserController.RemoveUser(context.Background(), h.Client, data))
 	} else {
 		return http.StatusNotImplemented
 	}

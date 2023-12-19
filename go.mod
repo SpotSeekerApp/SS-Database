@@ -5,10 +5,10 @@ go 1.21.4
 require (
 	cloud.google.com/go/firestore v1.14.0
 	firebase.google.com/go v3.13.0+incompatible
+	github.com/mitchellh/mapstructure v1.5.0
 	golang.org/x/net v0.18.0
 	google.golang.org/api v0.151.0
 	google.golang.org/grpc v1.59.0
-	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (

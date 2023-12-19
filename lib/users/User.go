@@ -1,7 +1,7 @@
 package users
 
 import (
-	place "SS-Database/lib/places"
+	places "SS-Database/lib/places"
 	types "SS-Database/lib/types"
 	"SS-Database/utils"
 	"cloud.google.com/go/firestore"
@@ -62,10 +62,11 @@ func (s UserController) AddUser(ctx context.Context, client *firestore.Client, d
 	userInfo.UserId = s.findNextID(ctx, client, "Users", "userID")
 
 	_, err := client.Collection("Users").Doc(strconv.Itoa(userInfo.UserId)).Create(ctx, map[string]interface{}{
-		"userID":   userInfo.UserId,
-		"userName": userInfo.UserName,
-		"email":    userInfo.Email,
-		"password": userInfo.Password,
+		"userID":       userInfo.UserId,
+		"userName":     userInfo.UserName,
+		"email":        userInfo.Email,
+		"password":     userInfo.Password,
+		"isPlaceOwner": userInfo.IsPlaceOwner,
 	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
@@ -160,6 +161,10 @@ func (s UserController) ReturnPassword(ctx context.Context, client *firestore.Cl
 
 	q := client.Collection("Users").Where("userID", "==", userInfo.UserId).Select("password")
 	ref, err := q.Documents(ctx).GetAll()
+	isPlaceOwner, _ := ref[0].DataAtPath(firestore.FieldPath{"isPlaceOwner"})
+	if isPlaceOwner != userInfo.IsPlaceOwner {
+		return []byte{}, codes.NotFound
+	}
 	password, _ := ref[0].DataAtPath(firestore.FieldPath{"password"})
 	if err != nil {
 		//log.Fatalf("Failed adding users: %v", err)
@@ -172,7 +177,7 @@ func (s UserController) ReturnPassword(ctx context.Context, client *firestore.Cl
 func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	favReqInfo := new(types.UserRequest)
 	var placeName string
-	place := place.PlaceController{}
+	var place = places.NewPlaceController()
 	placeData, _ := place.GetPlaceName(ctx, client, data)
 	err := json.Unmarshal(data, &favReqInfo)
 	_ = json.Unmarshal(placeData, &placeName)

@@ -73,43 +73,44 @@ func (s PlaceController) GetPlaceName(ctx context.Context, client *firestore.Cli
 	return jsonStr, codes.OK
 }
 
-func (s PlaceController) GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
-	placeInfo := new(types.PlaceRequest)
-	err := json.Unmarshal(data, placeInfo)
-	fmt.Println(placeInfo)
+func (s PlaceController) AddPlaceBatch(ctx context.Context, client *firestore.Client, data []map[string]interface{}) codes.Code {
 
-	q := client.Collection("Places").Where("placeId", "==", placeInfo.PlaceId)
-	ref, err := q.Documents(ctx).GetAll()
-	_ = ref[0].DataTo(placeInfo)
-	if err != nil {
-		//log.Fatalf("Failed adding users: %v", err)
-		return []byte{}, codes.Aborted
-	}
-	jsonStr, _ := json.Marshal(placeInfo)
-	return jsonStr, codes.OK
-}
+	for _, place := range data {
+		placeInfo := types.PlaceRequest{}
+		in := map[string]interface{}{
+			"placeId":      place["place_id"],
+			"placeName":    place["name"],
+			"mainCategory": place["main_category"],
+			"link":         place["link"],
+		}
+		_ = mapstructure.Decode(in, &placeInfo)
+		ref := client.Collection("Places")
+		err := client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 
-func (s PlaceController) AddReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
-	placeInfo := new(types.ReviewRequest)
-	err := json.Unmarshal(data, placeInfo)
-	fmt.Println(placeInfo)
+			docRef, _ := tx.DocumentRefs(ref).GetAll()
+			docSnaps, _ := tx.GetAll(docRef)
+			for _, s := range docSnaps {
+				if s.Data()["placeId"] == placeInfo.PlaceId {
+					log.Printf("Place with id %s already exists", placeInfo.PlaceId)
+					return os.ErrExist
+				}
+			}
+			err := tx.Create(ref.Doc(placeInfo.PlaceId), in)
 
-	ref := client.Doc("Places/" + placeInfo.PlaceId)
-	if ref == nil {
-		return codes.NotFound
-	}
-	ref = client.Doc("Places/" + placeInfo.PlaceId + "/Reviews/" + placeInfo.ReviewId)
-	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		return tx.Create(ref, map[string]interface{}{
-			"comment": placeInfo.Comment,
-			"rating":  placeInfo.Rating,
+			log.Printf("Creating new place with id %s", placeInfo.PlaceId)
+
+			reviewRef := ref.Doc(placeInfo.PlaceId).Collection("Reviews")
+			valMap, _ := place["detailed_reviews"].([]interface{})
+
+			err = s.AddReviews(reviewRef, tx, valMap)
+
+			return err
 		})
-	})
-	if err != nil {
-		// Handle any errors appropriately in this section.
-		log.Printf("An error has occurred: %s", err)
-		return codes.Aborted
+		if status.Code(err) == codes.NotFound {
+			return codes.NotFound
+		}
 	}
+
 	return codes.OK
 }
 

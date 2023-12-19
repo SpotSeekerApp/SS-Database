@@ -7,6 +7,7 @@ type UserRequest struct {
 	FavoritePlaces map[string]string `json:"favorite_places" firebase:"favoritePlaces"`
 	PlaceId        string            `json:"place_id" firebase:"placeId"`
 	Password       string            `json:"password" firebase:"password"`
+	IsPlaceOwner   bool              `json:"is_place_owner" firebase:"isPlaceOwner"`
 	PlaceName      string
 }
 
@@ -18,11 +19,12 @@ type FeedbackRequest struct {
 }
 
 type PlaceRequest struct {
-	PlaceId     string `json:"place_id"`
-	PlaceName   string `json:"place_name"`
-	Location    string `json:"location"`
-	Link2Photo  string `json:"photo_link"`
-	PhoneNumber string `json:"phone_number"`
+	OwnerId      int      `json:"owner_id"`
+	PlaceId      string   `json:"place_id"`
+	PlaceName    string   `json:"place_name"`
+	MainCategory string   `json:"main_category"`
+	Link         string   `json:"link"`
+	Tags         []string `json:"tags"`
 }
 
 type ReviewRequest struct {

@@ -2,8 +2,9 @@ package main
 
 import (
 	"SS-Database/lib/handlers"
-	ssPlaces "SS-Database/lib/places"
+	places "SS-Database/lib/places"
 	"SS-Database/lib/users"
+	"encoding/json"
 	firebase "firebase.google.com/go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
@@ -22,8 +23,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed adding aturing: %v", err)
 	}
+	isDataPush := "true" //os.Getenv("DATAPUSH")
+	if isDataPush == "true" {
+		placeController := places.NewPlaceController()
+		data := new([]map[string]interface{})
+		jsonFile, _ := os.ReadFile("data.json")
+		json.Unmarshal(jsonFile, data)
+
+		placeController.AddPlaceBatch(context.Background(), app.HandlerIns.Client, *data)
+		os.Exit(0)
+	}
 	app.HandlerIns.UserController = users.UserController{}
-	app.HandlerIns.PlaceController = ssPlaces.PlaceController{}
+	app.HandlerIns.PlaceController = places.PlaceController{}
 
 	log.Print("starting server...")
 	http.HandleFunc("/AddUser", app.HandlerIns.HandleRequest)

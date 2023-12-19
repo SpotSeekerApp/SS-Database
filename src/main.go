@@ -27,10 +27,15 @@ func main() {
 	if isDataPush == "true" {
 		placeController := places.NewPlaceController()
 		data := new([]map[string]interface{})
-		jsonFile, _ := os.ReadFile("data.json")
-		json.Unmarshal(jsonFile, data)
+		dataFiles, _ := os.ReadDir("SS-Vision-and-NLP/data")
+		for _, file := range dataFiles {
+			log.Printf("Reading %s", file.Name())
+			jsonFile, _ := os.ReadFile("SS-Vision-and-NLP/data/" + file.Name())
+			json.Unmarshal(jsonFile, data)
 
-		placeController.AddPlaceBatch(context.Background(), app.HandlerIns.Client, *data)
+			placeController.AddPlaceBatch(context.Background(), app.HandlerIns.Client, *data)
+		}
+
 		os.Exit(0)
 	}
 	app.HandlerIns.UserController = users.UserController{}

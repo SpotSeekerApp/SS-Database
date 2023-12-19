@@ -13,6 +13,8 @@ import (
 	"os"
 )
 
+const REVIEW_COUNT = 10
+
 type PlaceController struct {
 	PlaceId    string `firebase:"placeId"`
 	PlaceName  string `firebase:"placeName"`
@@ -85,10 +87,13 @@ func (s PlaceController) AddPlaceBatch(ctx context.Context, client *firestore.Cl
 			docSnaps, _ := tx.GetAll(docRef)
 			for _, s := range docSnaps {
 				if s.Data()["placeId"] == placeInfo.PlaceId {
+					log.Printf("Place with id %s already exists", placeInfo.PlaceId)
 					return os.ErrExist
 				}
 			}
 			err := tx.Create(ref.Doc(placeInfo.PlaceId), in)
+
+			log.Printf("Creating new place with id %s", placeInfo.PlaceId)
 
 			reviewRef := ref.Doc(placeInfo.PlaceId).Collection("Reviews")
 			valMap, _ := place["detailed_reviews"].([]interface{})
@@ -140,7 +145,10 @@ func (s PlaceController) GetPlaceInfo(ctx context.Context, client *firestore.Cli
 }
 
 func (s PlaceController) AddReviews(ref *firestore.CollectionRef, tx *firestore.Transaction, data []interface{}) error {
-	for _, place := range data {
+	for idx, place := range data {
+		if idx >= REVIEW_COUNT {
+			break
+		}
 		place, _ := place.(map[string]interface{})
 		reviewInfo := types.ReviewRequest{}
 		in := map[string]interface{}{
@@ -151,16 +159,7 @@ func (s PlaceController) AddReviews(ref *firestore.CollectionRef, tx *firestore.
 			"date":         place["published_at_date"],
 		}
 		_ = mapstructure.Decode(in, &reviewInfo)
-		docRef, _ := tx.DocumentRefs(ref).GetAll()
-		docSnaps, _ := tx.GetAll(docRef)
-		for _, s := range docSnaps {
-			if s.Data()["reviewId"] == reviewInfo.ReviewId {
-				return os.ErrExist
-			}
-		}
-		err := tx.Create(ref.Doc(reviewInfo.ReviewId), in)
-		return err
-
+		_ = tx.Create(ref.Doc(reviewInfo.ReviewId), in)
 	}
 	return nil
 }

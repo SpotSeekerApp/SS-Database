@@ -1,7 +1,7 @@
 package types
 
 type UserRequest struct {
-	UserId         int               `json:"user_id" firebase:"userID"`
+	UserId         string            `json:"user_id" firebase:"userID"`
 	UserName       string            `json:"user_name" firebase:"userName"`
 	Email          string            `json:"email" firebase:"email"`
 	FavoritePlaces map[string]string `json:"favorite_places" firebase:"favoritePlaces"`
@@ -25,11 +25,13 @@ type PlaceRequest struct {
 	MainCategory string   `json:"main_category"`
 	Link         string   `json:"link"`
 	Tags         []string `json:"tags"`
+	Review       string   `json:"review"`
 }
 
 type ReviewRequest struct {
-	PlaceId  string `json:"place_id"`
-	Comment  string `json:"comment"`
-	Rating   string `json:"rating"`
-	ReviewId string `json:"review_id"`
+	ReviewId     string  `json:"review_id"`
+	ReviewerName string  `json:"reviewer_name"`
+	Rating       float32 `json:"rating"`
+	Comment      string  `json:"comment"`
+	Date         string  `json:"date"`
 }

@@ -9,14 +9,14 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
 type PlaceInterface interface {
 	AddPlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
-	AddReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	GetPlaceName(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	GetAllPlaces(ctx context.Context, client *firestore.Client) ([]byte, codes.Code)
 }
 
 func (h HandlerInstance) PlaceHandler(w http.ResponseWriter, r *http.Request) {
@@ -43,18 +43,6 @@ func (h HandlerInstance) PlaceHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-//func (h HandlerInstance) AddReviewHandler(w http.ResponseWriter, r *http.Request) http.ConnState {
-//	req := new(types.ReviewRequest)
-//	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
-//		return http.StatusBadRequest
-//	}
-//	data, _ := json.Marshal(req)
-//	fmt.Println(data)
-//	err := utils.MapErrorCode(h.PlaceController.AddReview(context.Background(), h.Client, data))
-//
-//	return err
-//}
-
 func (h HandlerInstance) POSTPlaceHandler(w http.ResponseWriter, r *http.Request, function string) http.ConnState {
 
 	req := new(types.PlaceRequest)
@@ -75,8 +63,10 @@ func (h HandlerInstance) POSTPlaceHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (h HandlerInstance) GETPlaceHandler(w http.ResponseWriter, r *http.Request, function string) ([]byte, http.ConnState) {
-	req := make(map[string]int)
-	req["place_id"], _ = strconv.Atoi(r.URL.Query()["place_id"][0])
+	req := make(map[string]string)
+	if strings.Contains(r.URL.RawQuery, "place_id") {
+		req["place_id"] = r.URL.Query()["place_id"][0]
+	}
 	data, _ := json.Marshal(req)
 	fmt.Println(req)
 
@@ -84,6 +74,14 @@ func (h HandlerInstance) GETPlaceHandler(w http.ResponseWriter, r *http.Request,
 	var res []byte
 	if function == "GetPlaceInfo" {
 		resTemp, errTemp := h.PlaceController.GetPlaceInfo(context.Background(), h.Client, data)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "GetAllPlaces" {
+		resTemp, errTemp := h.PlaceController.GetAllPlaces(context.Background(), h.Client)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "GetPlaceName" {
+		resTemp, errTemp := h.PlaceController.GetPlaceName(context.Background(), h.Client, data)
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else {

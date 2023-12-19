@@ -16,7 +16,7 @@ import (
 )
 
 type UserController struct {
-	UserID         int
+	UserID         string
 	FeedbackId     int
 	UserName       string
 	Email          string
@@ -32,10 +32,8 @@ func (s UserController) findNextID(ctx context.Context, client *firestore.Client
 		return 0
 	} else {
 		_ = q[0].DataTo(&userdata)
-		if id == "feedbackId" {
-			return userdata.FeedbackId + 1
-		}
-		return userdata.UserID + 1
+
+		return userdata.FeedbackId + 1
 	}
 }
 
@@ -59,9 +57,8 @@ func (s UserController) AddUser(ctx context.Context, client *firestore.Client, d
 	if errCode != codes.OK {
 		return errCode
 	}
-	userInfo.UserId = s.findNextID(ctx, client, "Users", "userID")
 
-	_, err := client.Collection("Users").Doc(strconv.Itoa(userInfo.UserId)).Create(ctx, map[string]interface{}{
+	_, err := client.Collection("Users").Doc(userInfo.UserId).Create(ctx, map[string]interface{}{
 		"userID":       userInfo.UserId,
 		"userName":     userInfo.UserName,
 		"email":        userInfo.Email,
@@ -80,7 +77,7 @@ func (s UserController) RemoveUser(ctx context.Context, client *firestore.Client
 	userInfo := new(types.UserRequest)
 	fmt.Println(userInfo)
 	_ = json.Unmarshal(data, userInfo)
-	ref := client.Collection("Users").Doc(strconv.Itoa(userInfo.UserId))
+	ref := client.Collection("Users").Doc(userInfo.UserId)
 	userReview := ref.Collection("Feedbacks")
 	bulkWriter := client.BulkWriter(ctx)
 
@@ -123,7 +120,7 @@ func (s UserController) UpdateUser(ctx context.Context, client *firestore.Client
 		return codes.Aborted
 	}
 
-	docSnap, err := client.Collection("Users").Doc(strconv.Itoa(userInfo.UserId)).Get(ctx)
+	docSnap, err := client.Collection("Users").Doc(userInfo.UserId).Get(ctx)
 	if err != nil {
 		log.Printf("Failed removing user: User not found")
 		return codes.NotFound
@@ -176,14 +173,15 @@ func (s UserController) ReturnPassword(ctx context.Context, client *firestore.Cl
 
 func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	favReqInfo := new(types.UserRequest)
-	var placeName string
+
 	var place = places.NewPlaceController()
+	placeInfo := new(types.PlaceRequest)
 	placeData, _ := place.GetPlaceName(ctx, client, data)
 	err := json.Unmarshal(data, &favReqInfo)
-	_ = json.Unmarshal(placeData, &placeName)
+	_ = json.Unmarshal(placeData, placeInfo)
 	fmt.Println(favReqInfo)
 
-	ref := client.Collection("Users").Doc(strconv.Itoa(favReqInfo.UserId))
+	ref := client.Collection("Users").Doc(favReqInfo.UserId)
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 
 		doc, err := tx.Get(ref)
@@ -195,9 +193,9 @@ func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.
 
 		fmt.Println(userdata.FavoritePlaces)
 		if userdata.FavoritePlaces == nil {
-			userdata.FavoritePlaces = map[string]string{favReqInfo.PlaceId: placeName}
+			userdata.FavoritePlaces = map[string]string{favReqInfo.PlaceId: placeInfo.PlaceName}
 		} else {
-			userdata.FavoritePlaces[favReqInfo.PlaceId] = placeName
+			userdata.FavoritePlaces[favReqInfo.PlaceId] = placeInfo.PlaceName
 		}
 		return tx.Set(ref, map[string]interface{}{
 			"favoritePlaces": userdata.FavoritePlaces,
@@ -221,7 +219,7 @@ func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firesto
 	err := json.Unmarshal(data, favReqInfo)
 	fmt.Println(favReqInfo)
 
-	ref := client.Collection("Users").Doc(strconv.Itoa(favReqInfo.UserId))
+	ref := client.Collection("Users").Doc(favReqInfo.UserId)
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(ref) // tx.Get, NOT ref.Get!
 		if err != nil {
@@ -283,11 +281,10 @@ func (s UserController) GetAllUsers(ctx context.Context, client *firestore.Clien
 	}
 
 	resp := map[string]types.UserRequest{}
-	maxDigit, _ := docRefs[len(docRefs)-1].DataAt("userID")
 	for _, docRef := range docRefs {
 		var userData types.UserRequest
 		_ = docRef.DataTo(&userData)
-		resp[utils.NumberToString(userData.UserId, maxDigit)] = userData
+		resp[userData.UserId] = userData
 	}
 
 	jsonStr, err := json.Marshal(resp)

@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed adding aturing: %v", err)
 	}
-	isDataPush := "true" //os.Getenv("DATAPUSH")
+	isDataPush := os.Getenv("DATAPUSH")
 	if isDataPush == "true" {
 		placeController := places.NewPlaceController()
 		data := new([]map[string]interface{})
@@ -44,7 +44,8 @@ func main() {
 	http.HandleFunc("/ReturnPassword", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddPlace", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetPlaceInfo", app.HandlerIns.HandleRequest)
-	http.HandleFunc("/AddReview", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/GetPlaceName", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/GetAllPlaces", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetAllUsers", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddFeedback", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddFavoritePlace", app.HandlerIns.HandleRequest)

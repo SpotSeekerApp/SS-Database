@@ -15,7 +15,7 @@ import (
 
 type PlaceController struct {
 	PlaceId    string `firebase:"placeId"`
-	Name       string `firebase:"placeName"`
+	PlaceName  string `firebase:"placeName"`
 	Link       string `firebase:"location"`
 	Link2Photo string `firebase:"link2Photo"`
 	InitReview string `firebase:"initReview"`
@@ -89,6 +89,12 @@ func (s PlaceController) AddPlaceBatch(ctx context.Context, client *firestore.Cl
 				}
 			}
 			err := tx.Create(ref.Doc(placeInfo.PlaceId), in)
+
+			reviewRef := ref.Doc(placeInfo.PlaceId).Collection("Reviews")
+			valMap, _ := place["detailed_reviews"].([]interface{})
+
+			err = s.AddReviews(reviewRef, tx, valMap)
+
 			return err
 		})
 		if status.Code(err) == codes.NotFound {
@@ -111,7 +117,9 @@ func (s PlaceController) GetPlaceName(ctx context.Context, client *firestore.Cli
 		//log.Fatalf("Failed adding users: %v", err)
 		return []byte{}, codes.Aborted
 	}
-	jsonStr, _ := json.Marshal(name)
+	nameRes, _ := name.(string)
+	placeInfo.PlaceName = nameRes
+	jsonStr, _ := json.Marshal(placeInfo)
 	return jsonStr, codes.OK
 }
 
@@ -131,28 +139,30 @@ func (s PlaceController) GetPlaceInfo(ctx context.Context, client *firestore.Cli
 	return jsonStr, codes.OK
 }
 
-func (s PlaceController) AddReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
-	placeInfo := new(types.ReviewRequest)
-	err := json.Unmarshal(data, placeInfo)
-	fmt.Println(placeInfo)
+func (s PlaceController) AddReviews(ref *firestore.CollectionRef, tx *firestore.Transaction, data []interface{}) error {
+	for _, place := range data {
+		place, _ := place.(map[string]interface{})
+		reviewInfo := types.ReviewRequest{}
+		in := map[string]interface{}{
+			"reviewId":     place["review_id"],
+			"reviewerName": place["reviewer_name"],
+			"rating":       place["rating"],
+			"comment":      place["review_text"],
+			"date":         place["published_at_date"],
+		}
+		_ = mapstructure.Decode(in, &reviewInfo)
+		docRef, _ := tx.DocumentRefs(ref).GetAll()
+		docSnaps, _ := tx.GetAll(docRef)
+		for _, s := range docSnaps {
+			if s.Data()["reviewId"] == reviewInfo.ReviewId {
+				return os.ErrExist
+			}
+		}
+		err := tx.Create(ref.Doc(reviewInfo.ReviewId), in)
+		return err
 
-	ref := client.Doc("Places/" + placeInfo.PlaceId)
-	if ref == nil {
-		return codes.NotFound
 	}
-	ref = client.Doc("Places/" + placeInfo.PlaceId + "/Reviews/" + placeInfo.ReviewId)
-	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		return tx.Create(ref, map[string]interface{}{
-			"comment": placeInfo.Comment,
-			"rating":  placeInfo.Rating,
-		})
-	})
-	if err != nil {
-		// Handle any errors appropriately in this section.
-		log.Printf("An error has occurred: %s", err)
-		return codes.Aborted
-	}
-	return codes.OK
+	return nil
 }
 
 func (s PlaceController) GetAllPlaces(ctx context.Context, client *firestore.Client) ([]byte, codes.Code) {

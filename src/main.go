@@ -39,14 +39,13 @@ func main() {
 		os.Exit(0)
 	}
 	app.HandlerIns.UserController = users.UserController{}
-	app.HandlerIns.PlaceController = places.PlaceController{}
+	app.HandlerIns.PlaceController = places.NewPlaceController()
 
 	log.Print("starting server...")
 	http.HandleFunc("/AddUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/UpdateUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/RemoveUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetUserInfo", app.HandlerIns.HandleRequest)
-	http.HandleFunc("/ReturnPassword", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddPlace", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetPlaceInfo", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetPlaceName", app.HandlerIns.HandleRequest)

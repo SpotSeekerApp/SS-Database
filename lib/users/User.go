@@ -59,11 +59,10 @@ func (s UserController) AddUser(ctx context.Context, client *firestore.Client, d
 	}
 
 	_, err := client.Collection("Users").Doc(userInfo.UserId).Create(ctx, map[string]interface{}{
-		"userID":       userInfo.UserId,
-		"userName":     userInfo.UserName,
-		"email":        userInfo.Email,
-		"password":     userInfo.Password,
-		"isPlaceOwner": userInfo.IsPlaceOwner,
+		"userID":   userInfo.UserId,
+		"userName": userInfo.UserName,
+		"email":    userInfo.Email,
+		"userType": userInfo.UserType,
 	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
@@ -151,26 +150,6 @@ func (s UserController) GetUserInfo(ctx context.Context, client *firestore.Clien
 	return jsonStr, codes.OK
 }
 
-func (s UserController) ReturnPassword(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
-	userInfo := new(types.UserRequest)
-	fmt.Println(userInfo)
-	err := json.Unmarshal(data, userInfo)
-
-	q := client.Collection("Users").Where("userID", "==", userInfo.UserId).Select("password")
-	ref, err := q.Documents(ctx).GetAll()
-	isPlaceOwner, _ := ref[0].DataAtPath(firestore.FieldPath{"isPlaceOwner"})
-	if isPlaceOwner != userInfo.IsPlaceOwner {
-		return []byte{}, codes.NotFound
-	}
-	password, _ := ref[0].DataAtPath(firestore.FieldPath{"password"})
-	if err != nil {
-		//log.Fatalf("Failed adding users: %v", err)
-		return []byte{}, codes.Aborted
-	}
-	jsonStr, _ := json.Marshal(password)
-	return jsonStr, codes.OK
-}
-
 func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	favReqInfo := new(types.UserRequest)
 
@@ -181,7 +160,7 @@ func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.
 	_ = json.Unmarshal(placeData, placeInfo)
 	fmt.Println(favReqInfo)
 
-	ref := client.Collection("Users").Doc(strconv.Itoa(favReqInfo.UserId))
+	ref := client.Collection("Users").Doc(favReqInfo.UserId)
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 
 		doc, err := tx.Get(ref)
@@ -219,7 +198,7 @@ func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firesto
 	err := json.Unmarshal(data, favReqInfo)
 	fmt.Println(favReqInfo)
 
-	ref := client.Collection("Users").Doc(strconv.Itoa(favReqInfo.UserId))
+	ref := client.Collection("Users").Doc(favReqInfo.UserId)
 	err = client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		doc, err := tx.Get(ref) // tx.Get, NOT ref.Get!
 		if err != nil {
@@ -252,10 +231,7 @@ func (s UserController) AddFeedback(ctx context.Context, client *firestore.Clien
 	feedbackInfo := new(types.FeedbackRequest)
 
 	err := json.Unmarshal(data, feedbackInfo)
-
-	feedbackPath := "Users/" + strconv.Itoa(feedbackInfo.UserId) + "/Feedbacks/"
-	feedbackInfo.FeedbackId = s.findNextID(ctx, client,
-		feedbackPath, "feedbackId")
+	fmt.Println(feedbackInfo)
 
 	feedbackPath := "Users/" + strconv.Itoa(feedbackInfo.UserId) + "/Feedbacks"
 	feedbackInfo.FeedbackId = s.findNextID(ctx, client, feedbackPath, "feedbackId")

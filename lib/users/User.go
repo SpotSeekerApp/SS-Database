@@ -59,11 +59,10 @@ func (s UserController) AddUser(ctx context.Context, client *firestore.Client, d
 	}
 
 	_, err := client.Collection("Users").Doc(userInfo.UserId).Create(ctx, map[string]interface{}{
-		"userID":       userInfo.UserId,
-		"userName":     userInfo.UserName,
-		"email":        userInfo.Email,
-		"password":     userInfo.Password,
-		"isPlaceOwner": userInfo.IsPlaceOwner,
+		"userID":   userInfo.UserId,
+		"userName": userInfo.UserName,
+		"email":    userInfo.Email,
+		"userType": userInfo.UserType,
 	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
@@ -148,26 +147,6 @@ func (s UserController) GetUserInfo(ctx context.Context, client *firestore.Clien
 		return []byte{}, codes.Aborted
 	}
 	jsonStr, _ := json.Marshal(userInfo)
-	return jsonStr, codes.OK
-}
-
-func (s UserController) ReturnPassword(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
-	userInfo := new(types.UserRequest)
-	fmt.Println(userInfo)
-	err := json.Unmarshal(data, userInfo)
-
-	q := client.Collection("Users").Where("userID", "==", userInfo.UserId).Select("password")
-	ref, err := q.Documents(ctx).GetAll()
-	isPlaceOwner, _ := ref[0].DataAtPath(firestore.FieldPath{"isPlaceOwner"})
-	if isPlaceOwner != userInfo.IsPlaceOwner {
-		return []byte{}, codes.NotFound
-	}
-	password, _ := ref[0].DataAtPath(firestore.FieldPath{"password"})
-	if err != nil {
-		//log.Fatalf("Failed adding users: %v", err)
-		return []byte{}, codes.Aborted
-	}
-	jsonStr, _ := json.Marshal(password)
 	return jsonStr, codes.OK
 }
 

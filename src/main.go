@@ -46,7 +46,6 @@ func main() {
 	http.HandleFunc("/UpdateUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/RemoveUser", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetUserInfo", app.HandlerIns.HandleRequest)
-	http.HandleFunc("/ReturnPassword", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddPlace", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetPlaceInfo", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetPlaceName", app.HandlerIns.HandleRequest)

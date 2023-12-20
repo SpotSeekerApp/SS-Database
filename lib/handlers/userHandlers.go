@@ -9,7 +9,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -18,7 +17,6 @@ type UserInterface interface {
 	RemoveUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	UpdateUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	GetUserInfo(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
-	ReturnPassword(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
 	AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	RemoveFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	AddFeedback(ctx context.Context, client *firestore.Client, data []byte) codes.Code
@@ -84,7 +82,7 @@ func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request,
 }
 
 func (h HandlerInstance) GETUserHandler(w http.ResponseWriter, r *http.Request, function string) ([]byte, http.ConnState) {
-	req := make(map[string]int)
+	req := make(map[string]string)
 
 	var err http.ConnState
 	var res []byte
@@ -93,17 +91,10 @@ func (h HandlerInstance) GETUserHandler(w http.ResponseWriter, r *http.Request, 
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else if function == "GetUserInfo" {
-		req["user_id"], _ = strconv.Atoi(r.URL.Query()["user_id"][0])
+		req["user_id"] = r.URL.Query()["user_id"][0]
 		data, _ := json.Marshal(req)
 		fmt.Println(req)
 		resTemp, errTemp := h.UserController.GetUserInfo(context.Background(), h.Client, data)
-		err = utils.MapErrorCode(errTemp)
-		res = resTemp
-	} else if function == "ReturnPassword" {
-		req["user_id"], _ = strconv.Atoi(r.URL.Query()["user_id"][0])
-		data, _ := json.Marshal(req)
-		fmt.Println(req)
-		resTemp, errTemp := h.UserController.ReturnPassword(context.Background(), h.Client, data)
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else {

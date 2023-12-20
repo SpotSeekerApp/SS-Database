@@ -31,7 +31,7 @@ func NewPlaceController() *PlaceController {
 
 func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	placeInfo := new(types.PlaceRequest)
-	placeInfo.OwnerId = -1 // default
+	placeInfo.UserId = "-1" // default
 	err := json.Unmarshal(data, placeInfo)
 	fmt.Println(placeInfo)
 
@@ -42,8 +42,8 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 		"link":         placeInfo.Link,
 		"tags":         placeInfo.Tags,
 	}
-	if placeInfo.OwnerId != -1 {
-		in["ownerId"] = placeInfo.OwnerId
+	if placeInfo.UserId != "-1" {
+		in["userId"] = placeInfo.UserId
 	}
 
 	ref := client.Collection("Places").NewDoc()
@@ -57,20 +57,16 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 	return codes.OK
 }
 
-func (s PlaceController) GetPlaceName(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
-	placeInfo := new(types.PlaceRequest)
-	err := json.Unmarshal(data, placeInfo)
-	fmt.Println(placeInfo)
+func (s PlaceController) checkIfExists(ctx context.Context, client *firestore.Client, id string) bool {
 
-	q := client.Collection("Places").Where("placeId", "==", placeInfo.PlaceId).Select("placeName")
-	ref, err := q.Documents(ctx).GetAll()
-	name, _ := ref[0].DataAtPath(firestore.FieldPath{"placeName"})
-	if err != nil {
-		//log.Fatalf("Failed adding users: %v", err)
-		return []byte{}, codes.Aborted
+	iter := client.Collection("Places").Select("place_id").Documents(ctx)
+	q, _ := iter.GetAll()
+	for _, s := range q {
+		if s.Data()["place_id"] == id {
+			return true
+		}
 	}
-	jsonStr, _ := json.Marshal(name)
-	return jsonStr, codes.OK
+	return false
 }
 
 func (s PlaceController) AddPlaceBatch(ctx context.Context, client *firestore.Client, data []map[string]interface{}) codes.Code {
@@ -132,12 +128,17 @@ func (s PlaceController) GetPlaceName(ctx context.Context, client *firestore.Cli
 	return jsonStr, codes.OK
 }
 
-func (s PlaceController) GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+func (s PlaceController) GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte, field string) ([]byte, codes.Code) {
 	placeInfo := new(types.PlaceRequest)
 	err := json.Unmarshal(data, placeInfo)
 	fmt.Println(placeInfo)
 
-	q := client.Collection("Places").Where("placeId", "==", placeInfo.PlaceId)
+	var q firestore.Query
+	if field == "place_id" {
+		q = client.Collection("Places").Where("placeId", "==", placeInfo.PlaceId)
+	} else {
+		q = client.Collection("Places").Where("userId", "==", placeInfo.UserId)
+	}
 	ref, err := q.Documents(ctx).GetAll()
 	_ = ref[0].DataTo(placeInfo)
 	if err != nil {
@@ -168,8 +169,17 @@ func (s PlaceController) AddReviews(ref *firestore.CollectionRef, tx *firestore.
 	return nil
 }
 
-func (s PlaceController) GetAllPlaces(ctx context.Context, client *firestore.Client) ([]byte, codes.Code) {
-	docRefs, err := client.Collection("Places").Documents(ctx).GetAll()
+func (s PlaceController) GetAllPlaces(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	placeInfo := new(types.PlaceRequest)
+	placeInfo.UserId = "-1"
+	err := json.Unmarshal(data, placeInfo)
+	fmt.Println(placeInfo)
+	var docRefs []*firestore.DocumentSnapshot
+	if placeInfo.UserId == "-1" {
+		docRefs, err = client.Collection("Places").Documents(ctx).GetAll()
+	} else {
+		docRefs, err = client.Collection("Places").Where("userId", "==", placeInfo.UserId).Documents(ctx).GetAll()
+	}
 	if err != nil {
 		return []byte{}, codes.NotFound
 	}

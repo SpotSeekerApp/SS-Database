@@ -9,15 +9,14 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
 type PlaceInterface interface {
 	AddPlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
-	GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte, field string) ([]byte, codes.Code)
 	GetPlaceName(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
-	GetAllPlaces(ctx context.Context, client *firestore.Client) ([]byte, codes.Code)
+	GetAllPlaces(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
 }
 
 func (h HandlerInstance) PlaceHandler(w http.ResponseWriter, r *http.Request) {
@@ -65,8 +64,13 @@ func (h HandlerInstance) POSTPlaceHandler(w http.ResponseWriter, r *http.Request
 
 func (h HandlerInstance) GETPlaceHandler(w http.ResponseWriter, r *http.Request, function string) ([]byte, http.ConnState) {
 	req := make(map[string]string)
+	var reqType string
 	if strings.Contains(r.URL.RawQuery, "place_id") {
+		reqType = "place_id"
 		req["place_id"] = r.URL.Query()["place_id"][0]
+	} else if strings.Contains(r.URL.RawQuery, "user_id") {
+		reqType = "user_id"
+		req["user_id"] = r.URL.Query()["user_id"][0]
 	}
 	data, _ := json.Marshal(req)
 	fmt.Println(req)
@@ -74,11 +78,11 @@ func (h HandlerInstance) GETPlaceHandler(w http.ResponseWriter, r *http.Request,
 	var err http.ConnState
 	var res []byte
 	if function == "GetPlaceInfo" {
-		resTemp, errTemp := h.PlaceController.GetPlaceInfo(context.Background(), h.Client, data)
+		resTemp, errTemp := h.PlaceController.GetPlaceInfo(context.Background(), h.Client, data, reqType)
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else if function == "GetAllPlaces" {
-		resTemp, errTemp := h.PlaceController.GetAllPlaces(context.Background(), h.Client)
+		resTemp, errTemp := h.PlaceController.GetAllPlaces(context.Background(), h.Client, data)
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else if function == "GetPlaceName" {

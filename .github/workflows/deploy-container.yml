@@ -22,5 +22,5 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build the Docker image
       run: | 
-        docker build --tag ghcr.io/${{ github.repository_owner }}/database-api:${BUILD_VERSION} .
-        docker push ghcr.io/${{ github.repository_owner }}/database-api:${BUILD_VERSION}
+        docker build --tag ghcr.io/spotseekerapp/database-api:${BUILD_VERSION} .
+        docker push ghcr.io/spotseekerapp/database-api:${BUILD_VERSION}

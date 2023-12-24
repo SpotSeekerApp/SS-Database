@@ -34,7 +34,7 @@ jobs:
     - name: Build the Docker image
       run: |
         echo '${{ secrets.JSON_GCLOUD_SERVICE_ACCOUNT_JSON }}' > credential-token.json 
-        docker build -t gcr.io/mert-personal/database-api2:$BUILD_ID .
+        docker build -t gcr.io/mert-personal/database-api2:${{ BUILD_ID }} .
         
     - name: Authenticate to Google Cloud
       id: auth

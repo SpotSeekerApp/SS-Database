@@ -2,7 +2,9 @@ name: Publish Docker Image
 
 on:
   push:
-    branches: [ "main" ]
+    branches: 
+      - 'main'
+      - 'test'
 
 jobs:
 
@@ -13,14 +15,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/checkout@v3        
     - name: Build the Docker image
-      run: | 
-        docker build --tag ghcr.io/spotseekerapp/database-api:${BUILD_VERSION} .
-        docker push ghcr.io/spotseekerapp/database-api:${BUILD_VERSION}
+      run: |
+        echo '${{ secrets.JSON_GCLOUD_SERVICE_ACCOUNT_JSON }}' > credential-token.json 
+        docker build -t gcr.io/mert-personal/database-api2:${{ github.sha }} .
+        
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.JSON_GCLOUD_SERVICE_ACCOUNT_JSON }}'
+    - name: Pushing the image
+      uses: RafikFarhad/push-to-gcr-github-action@v5-rc1 # <- use this on your workflow
+      with:
+        registry: gcr.io
+        project_id: mert-personal
+        image_name: database-api2
+        image_tag: ${{ github.sha }}
+        push_only: true

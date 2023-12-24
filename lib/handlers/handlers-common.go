@@ -15,7 +15,7 @@ type HandlerInstance struct {
 }
 
 const userReqTypes = "user|feedback|favorite|password"
-const placeReqTypes = "place|review|placeinfo"
+const placeReqTypes = "place|review"
 
 func (h HandlerInstance) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)

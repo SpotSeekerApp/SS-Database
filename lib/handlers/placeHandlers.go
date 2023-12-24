@@ -14,6 +14,8 @@ import (
 
 type PlaceInterface interface {
 	AddPlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
+	RemovePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
+	UpdatePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte, field string) ([]byte, codes.Code)
 	GetPlaceName(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
 	GetAllPlaces(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
@@ -55,6 +57,10 @@ func (h HandlerInstance) POSTPlaceHandler(w http.ResponseWriter, r *http.Request
 	var err http.ConnState
 	if function == "AddPlace" {
 		err = utils.MapErrorCode(h.PlaceController.AddPlace(context.Background(), h.Client, data))
+	} else if function == "RemovePlace" {
+		err = utils.MapErrorCode(h.PlaceController.RemovePlace(context.Background(), h.Client, data))
+	} else if function == "UpdatePlace" {
+		err = utils.MapErrorCode(h.PlaceController.UpdatePlace(context.Background(), h.Client, data))
 	} else {
 		return http.StatusNotImplemented
 	}

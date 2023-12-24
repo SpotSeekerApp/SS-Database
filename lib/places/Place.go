@@ -2,11 +2,13 @@ package places
 
 import (
 	types "SS-Database/lib/types"
+	"SS-Database/utils"
 	"cloud.google.com/go/firestore"
 	"encoding/json"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"golang.org/x/net/context"
+	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"log"
@@ -54,6 +56,68 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 		return codes.Aborted
 	}
 
+	return codes.OK
+}
+
+func (s PlaceController) RemovePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	placeInfo := new(types.PlaceRequest)
+	fmt.Println(placeInfo)
+	_ = json.Unmarshal(data, placeInfo)
+	ref := client.Collection("Places").Doc(placeInfo.PlaceId)
+	placeTags := ref.Collection("Tags")
+	bulkWriter := client.BulkWriter(ctx)
+
+	for {
+		// Get a batch of documents
+		iter := placeTags.Limit(utils.BATCH_SIZE).Documents(ctx)
+		numDeleted := 0
+
+		// Iterate through the documents, adding
+		// a delete operation for each one to the BulkWriter.
+		for {
+			doc, err := iter.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				break
+			}
+			bulkWriter.Delete(doc.Ref)
+			numDeleted++
+		}
+		if numDeleted == 0 {
+			bulkWriter.End()
+			break
+		}
+		bulkWriter.Flush()
+	}
+	bulkWriter = client.BulkWriter(ctx)
+	bulkWriter.Delete(ref)
+	bulkWriter.End()
+	bulkWriter.Flush()
+	return codes.OK
+}
+
+func (s PlaceController) UpdatePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	placeInfo := new(types.PlaceRequest)
+	err := json.Unmarshal(data, placeInfo)
+	if err != nil {
+		log.Printf("Failed removing user: %v", err)
+		return codes.Aborted
+	}
+
+	docSnap, err := client.Collection("Places").Doc(placeInfo.PlaceId).Get(ctx)
+	if err != nil {
+		log.Printf("Failed removing user: User not found")
+		return codes.NotFound
+	}
+
+	_, err = docSnap.Ref.Update(ctx, utils.ExtractNonEmptyFields(*placeInfo))
+
+	if err != nil {
+		log.Printf("Failed removing user: %v", err)
+		return codes.Aborted
+	}
 	return codes.OK
 }
 

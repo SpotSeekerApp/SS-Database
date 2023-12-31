@@ -42,7 +42,6 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 		"placeName":    placeInfo.PlaceName,
 		"mainCategory": placeInfo.MainCategory,
 		"link":         placeInfo.Link,
-		"tags":         placeInfo.Tags,
 	}
 	if placeInfo.UserId != "-1" {
 		in["userId"] = placeInfo.UserId
@@ -51,6 +50,17 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 	ref := client.Collection("Places").NewDoc()
 	in["placeId"] = ref.ID
 	_, err = ref.Create(ctx, in)
+	if err != nil {
+		log.Fatalf("Failed adding users: %v", err)
+		return codes.Aborted
+	}
+	if placeInfo.Tags == nil {
+		return codes.OK
+	}
+	_, err = client.Collection("Places/"+ref.ID+"/Tags").Doc("TagList").Create(ctx, map[string]interface{}{
+		"tags":     placeInfo.Tags,
+		"place_id": ref.ID,
+	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
 		return codes.Aborted
@@ -119,6 +129,18 @@ func (s PlaceController) UpdatePlace(ctx context.Context, client *firestore.Clie
 		return codes.Aborted
 	}
 	return codes.OK
+}
+
+func (s PlaceController) GetTagByPlace(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	placeInfo := new(types.PlaceRequest)
+	_ = json.Unmarshal(data, placeInfo)
+	fmt.Println(placeInfo)
+
+	docSnap, _ := client.Doc("Places/" + placeInfo.PlaceId + "/Tags/TagList").Get(ctx)
+	tagRet, _ := docSnap.DataAt("tagMap")
+	placeInfo.Tags = tagRet.(map[string]float32)
+	jsonStr, _ := json.Marshal(placeInfo)
+	return jsonStr, codes.OK
 }
 
 func (s PlaceController) checkIfExists(ctx context.Context, client *firestore.Client, id string) bool {
@@ -260,5 +282,24 @@ func (s PlaceController) GetAllPlaces(ctx context.Context, client *firestore.Cli
 	}
 
 	jsonStr, err := json.Marshal(resp)
+	return jsonStr, codes.OK
+}
+
+func (s PlaceController) GetAllTags(ctx context.Context, client *firestore.Client) ([]byte, codes.Code) {
+
+	docRefs, _ := client.CollectionGroup("Tags").Documents(ctx).GetAll()
+
+	if len(docRefs) == 0 {
+		return []byte{}, codes.OK
+	}
+
+	resp := make(map[string]map[string]float32)
+	for _, docRef := range docRefs {
+		var placeData types.PlaceRequest
+		_ = docRef.DataTo(&placeData)
+		resp[placeData.PlaceId] = placeData.Tags
+	}
+
+	jsonStr, _ := json.Marshal(resp)
 	return jsonStr, codes.OK
 }

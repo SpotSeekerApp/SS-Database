@@ -51,6 +51,8 @@ func main() {
 	http.HandleFunc("/UpdatePlace", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetPlaceInfo", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetPlaceName", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/GetAllTags", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/GetTagByPlace", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetAllPlaces", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/GetAllUsers", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddFeedback", app.HandlerIns.HandleRequest)

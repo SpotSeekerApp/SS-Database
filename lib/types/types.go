@@ -18,13 +18,13 @@ type FeedbackRequest struct {
 }
 
 type PlaceRequest struct {
-	UserId       string   `json:"user_id"`
-	PlaceId      string   `json:"place_id"`
-	PlaceName    string   `json:"place_name"`
-	MainCategory string   `json:"main_category"`
-	Link         string   `json:"link"`
-	Tags         []string `json:"tags"`
-	Review       string   `json:"review"`
+	UserId       string             `json:"user_id"`
+	PlaceId      string             `json:"place_id"`
+	PlaceName    string             `json:"place_name"`
+	MainCategory string             `json:"main_category"`
+	Link         string             `json:"link"`
+	Tags         map[string]float32 `json:"tags"`
+	Review       string             `json:"review"`
 }
 
 type ReviewRequest struct {

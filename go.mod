@@ -7,6 +7,7 @@ require (
 	firebase.google.com/go v3.13.0+incompatible
 	github.com/mitchellh/mapstructure v1.5.0
 	golang.org/x/net v0.18.0
+	gonum.org/v1/gonum v0.14.0
 	google.golang.org/api v0.151.0
 	google.golang.org/grpc v1.59.0
 )

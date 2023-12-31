@@ -21,6 +21,8 @@ type UserInterface interface {
 	RemoveFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	AddFeedback(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 	GetAllUsers(ctx context.Context, client *firestore.Client) ([]byte, codes.Code)
+	FilterPlaces(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	GetFeedbacks(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
 }
 
 func (h HandlerInstance) UserHandler(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +84,7 @@ func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request,
 }
 
 func (h HandlerInstance) GETUserHandler(w http.ResponseWriter, r *http.Request, function string) ([]byte, http.ConnState) {
-	req := make(map[string]string)
+	req := make(map[string]interface{})
 
 	var err http.ConnState
 	var res []byte
@@ -95,6 +97,21 @@ func (h HandlerInstance) GETUserHandler(w http.ResponseWriter, r *http.Request, 
 		data, _ := json.Marshal(req)
 		fmt.Println(req)
 		resTemp, errTemp := h.UserController.GetUserInfo(context.Background(), h.Client, data)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "FilterPlaces" {
+		req["user_id"] = r.URL.Query()["user_id"][0]
+		req["tags"] = utils.StringToList(r.URL.Query()["tags"][0])
+		data, _ := json.Marshal(req)
+		fmt.Println(req)
+		resTemp, errTemp := h.UserController.FilterPlaces(context.Background(), h.Client, data)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "GetFeedbacks" {
+		req["user_id"] = r.URL.Query()["user_id"][0]
+		data, _ := json.Marshal(req)
+		fmt.Println(req)
+		resTemp, errTemp := h.UserController.GetFeedbacks(context.Background(), h.Client, data)
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else {

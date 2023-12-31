@@ -19,6 +19,9 @@ type PlaceInterface interface {
 	GetPlaceInfo(ctx context.Context, client *firestore.Client, data []byte, field string) ([]byte, codes.Code)
 	GetPlaceName(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
 	GetAllPlaces(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	GetTagByPlace(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	GetAllTagVals(ctx context.Context, client *firestore.Client) ([]byte, codes.Code)
+	GetAllTags() ([]byte, codes.Code)
 }
 
 func (h HandlerInstance) PlaceHandler(w http.ResponseWriter, r *http.Request) {
@@ -91,8 +94,20 @@ func (h HandlerInstance) GETPlaceHandler(w http.ResponseWriter, r *http.Request,
 		resTemp, errTemp := h.PlaceController.GetAllPlaces(context.Background(), h.Client, data)
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
+	} else if function == "GetAllTagVals" {
+		resTemp, errTemp := h.PlaceController.GetAllTagVals(context.Background(), h.Client)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
 	} else if function == "GetPlaceName" {
 		resTemp, errTemp := h.PlaceController.GetPlaceName(context.Background(), h.Client, data)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "GetTagByPlace" {
+		resTemp, errTemp := h.PlaceController.GetTagByPlace(context.Background(), h.Client, data)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "GetAllTags" {
+		resTemp, errTemp := h.PlaceController.GetAllTags()
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else {

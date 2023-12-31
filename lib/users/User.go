@@ -12,8 +12,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"log"
+	"slices"
 	"strconv"
 )
+
+const SEARCH_LIMIT = 10
+const UPDATE_STEP = 0.1
 
 type UserController struct {
 	UserID         string
@@ -21,6 +25,18 @@ type UserController struct {
 	UserName       string
 	Email          string
 	FavoritePlaces map[string]string
+}
+
+func (s UserController) findSelectedTags(tagList []string) [][]float64 {
+	var tagVals [][]float64
+	for _, tag := range types.TAGLIST {
+		if slices.Contains(tagList, tag) {
+			tagVals = append(tagVals, []float64{1.0})
+		} else {
+			tagVals = append(tagVals, []float64{0.0})
+		}
+	}
+	return tagVals
 }
 
 func (s UserController) findNextID(ctx context.Context, client *firestore.Client, path string, id string) int {
@@ -48,6 +64,47 @@ func (s UserController) checkEmail(ctx context.Context, client *firestore.Client
 	return codes.OK
 }
 
+func (s UserController) FilterPlaces(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	filterInfo := new(types.FilterRequest)
+	userInfo := new(types.UserRequest)
+	placeController := places.NewPlaceController()
+	fmt.Println(filterInfo)
+	_ = json.Unmarshal(data, filterInfo)
+
+	userInfoByte, _ := s.GetUserInfo(ctx, client, data)
+	_ = json.Unmarshal(userInfoByte, userInfo)
+
+	allTags := make(map[string]map[string]float64)
+	allTagsByte, _ := placeController.GetAllTagVals(ctx, client)
+	_ = json.Unmarshal(allTagsByte, &allTags)
+
+	allTagsMatrix, placeIdList := utils.MapToMatrix(allTags)
+	userPrefMatrix := utils.ListToMatrix(userInfo.Tags)
+	selectedTags := s.findSelectedTags(filterInfo.Tags)
+
+	filterMatrix := utils.MatrixSum(utils.MatrixConstMul(selectedTags, 0.8), utils.MatrixConstMul(userPrefMatrix, 0.2))
+
+	filterRes := utils.MatrixTranspose(utils.MatrixMul(allTagsMatrix, filterMatrix))[0]
+
+	placeFilter := utils.MapLists(filterRes, placeIdList)
+
+	slices.Sort(filterRes)
+	slices.Reverse(filterRes)
+
+	var res []string
+	for idx, vals := range filterRes {
+
+		if idx > SEARCH_LIMIT {
+			break
+		}
+		res = append(res, placeFilter[vals])
+	}
+
+	data, _ = json.Marshal(map[string][]string{"filtered_places": res})
+
+	return data, codes.OK
+}
+
 func (s UserController) AddUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	userInfo := new(types.UserRequest)
 	_ = json.Unmarshal(data, userInfo)
@@ -58,11 +115,18 @@ func (s UserController) AddUser(ctx context.Context, client *firestore.Client, d
 		return errCode
 	}
 
+	userInfo.Tags = make(map[string]float64)
+	// create default tags
+	for _, tag := range types.TAGLIST {
+		userInfo.Tags[tag] = 0.0
+	}
+
 	_, err := client.Collection("Users").Doc(userInfo.UserId).Create(ctx, map[string]interface{}{
 		"userID":   userInfo.UserId,
 		"userName": userInfo.UserName,
 		"email":    userInfo.Email,
 		"userType": userInfo.UserType,
+		"tags":     userInfo.Tags,
 	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
@@ -150,6 +214,28 @@ func (s UserController) GetUserInfo(ctx context.Context, client *firestore.Clien
 	return jsonStr, codes.OK
 }
 
+func (s UserController) UpdatePersonalization(tagMap map[string]float64, placeId string, favCount int, client *firestore.Client, add bool) map[string]float64 {
+	var place = places.NewPlaceController()
+	placeTags := make(map[string]float64)
+
+	data, _ := json.Marshal(map[string]string{"place_id": placeId})
+
+	tagMapByte, _ := place.GetTagByPlace(context.Background(), client, data)
+	_ = json.Unmarshal(tagMapByte, &placeTags)
+
+	for key, val := range tagMap {
+		if add {
+			tagMap[key] = (val*float64(favCount-1) + placeTags[key]) / float64(favCount)
+		} else {
+			if favCount == 0 {
+				tagMap[key] = 0.0
+			} else {
+				tagMap[key] = (val*float64(favCount+1) - placeTags[key]) / float64(favCount)
+			}
+		}
+	}
+	return tagMap
+}
 func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	favReqInfo := new(types.UserRequest)
 
@@ -176,9 +262,11 @@ func (s UserController) AddFavoritePlace(ctx context.Context, client *firestore.
 		} else {
 			userdata.FavoritePlaces[favReqInfo.PlaceId] = placeInfo.PlaceName
 		}
+		userdata.Tags = s.UpdatePersonalization(userdata.Tags, favReqInfo.PlaceId, len(userdata.FavoritePlaces), client, true)
 		return tx.Set(ref, map[string]interface{}{
 			"favoritePlaces": userdata.FavoritePlaces,
-		}, firestore.MergeAll)
+			"tags":           userdata.Tags,
+		}, firestore.Merge(firestore.FieldPath{"favoritePlaces"}, firestore.FieldPath{"tags"}))
 
 	})
 	if status.Code(err) == codes.NotFound {
@@ -210,9 +298,11 @@ func (s UserController) RemoveFavoritePlace(ctx context.Context, client *firesto
 
 		delete(userdata.FavoritePlaces, favReqInfo.PlaceId)
 		fmt.Println(userdata.FavoritePlaces)
+		userdata.Tags = s.UpdatePersonalization(userdata.Tags, favReqInfo.PlaceId, len(userdata.FavoritePlaces), client, false)
 		return tx.Set(ref, map[string]interface{}{
 			"favoritePlaces": userdata.FavoritePlaces,
-		}, firestore.Merge(firestore.FieldPath{"favoritePlaces"}))
+			"tags":           userdata.Tags,
+		}, firestore.Merge(firestore.FieldPath{"favoritePlaces"}, firestore.FieldPath{"tags"}))
 
 	})
 	if status.Code(err) == codes.NotFound {
@@ -233,13 +323,24 @@ func (s UserController) AddFeedback(ctx context.Context, client *firestore.Clien
 	err := json.Unmarshal(data, feedbackInfo)
 	fmt.Println(feedbackInfo)
 
-	feedbackPath := "Users/" + strconv.Itoa(feedbackInfo.UserId) + "/Feedbacks"
-	feedbackInfo.FeedbackId = s.findNextID(ctx, client, feedbackPath, "feedbackId")
+	feedbackPath := "Users/" + feedbackInfo.UserId + "/Feedbacks"
+	ref := client.Collection(feedbackPath).NewDoc()
+	feedbackInfo.FeedbackId = ref.ID
 
-	_, err = client.Doc(feedbackPath+"/"+strconv.Itoa(feedbackInfo.FeedbackId)).Create(ctx, map[string]interface{}{
+	_, err = ref.Create(ctx, map[string]interface{}{
 		"feedbackId": feedbackInfo.FeedbackId,
 		"rating":     feedbackInfo.Rating,
+		"placeId":    feedbackInfo.PlaceId,
 	})
+
+	tags := make(map[string]float64)
+	for tag, val := range feedbackInfo.Rating {
+		satisfaction, _ := strconv.Atoi(val)
+		tags[tag] = UPDATE_STEP * float64(satisfaction)
+	}
+
+	placeController := places.NewPlaceController()
+	placeController.UpdateTags(feedbackInfo.PlaceId, client, tags, false)
 
 	if err != nil {
 		// Handle any errors appropriately in this section.
@@ -247,6 +348,26 @@ func (s UserController) AddFeedback(ctx context.Context, client *firestore.Clien
 		return codes.Aborted
 	}
 	return codes.OK
+}
+
+func (s UserController) GetFeedbacks(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	userInfo := new(types.UserRequest)
+
+	_ = json.Unmarshal(data, userInfo)
+	fmt.Println(userInfo)
+
+	feedbackPath := "Users/" + userInfo.UserId + "/Feedbacks"
+	feedbackSnaps, _ := client.Collection(feedbackPath).Documents(ctx).GetAll()
+	res := make(map[string]types.FeedbackRequest, 0)
+
+	for _, fbSnap := range feedbackSnaps {
+		var fb types.FeedbackRequest
+		_ = fbSnap.DataTo(&fb)
+		fb.UserId = userInfo.UserId
+		res[fb.FeedbackId] = fb
+	}
+	jsonStr, _ := json.Marshal(res)
+	return jsonStr, codes.OK
 }
 
 func (s UserController) GetAllUsers(ctx context.Context, client *firestore.Client) ([]byte, codes.Code) {

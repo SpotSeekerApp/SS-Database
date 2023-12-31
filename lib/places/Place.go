@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"log"
-	"os"
 )
 
 const REVIEW_COUNT = 10
@@ -42,7 +41,6 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 		"placeName":    placeInfo.PlaceName,
 		"mainCategory": placeInfo.MainCategory,
 		"link":         placeInfo.Link,
-		"tags":         placeInfo.Tags,
 	}
 	if placeInfo.UserId != "-1" {
 		in["userId"] = placeInfo.UserId
@@ -51,6 +49,17 @@ func (s PlaceController) AddPlace(ctx context.Context, client *firestore.Client,
 	ref := client.Collection("Places").NewDoc()
 	in["placeId"] = ref.ID
 	_, err = ref.Create(ctx, in)
+	if err != nil {
+		log.Fatalf("Failed adding users: %v", err)
+		return codes.Aborted
+	}
+	if placeInfo.Tags == nil {
+		return codes.OK
+	}
+	_, err = client.Collection("Places/"+ref.ID+"/Tags").Doc("TagList").Create(ctx, map[string]interface{}{
+		"tags":    placeInfo.Tags,
+		"placeId": ref.ID,
+	})
 	if err != nil {
 		log.Fatalf("Failed adding users: %v", err)
 		return codes.Aborted
@@ -98,12 +107,57 @@ func (s PlaceController) RemovePlace(ctx context.Context, client *firestore.Clie
 	return codes.OK
 }
 
+func (s PlaceController) UpdateTags(placeId string, client *firestore.Client, tags map[string]float64, change bool) codes.Code {
+
+	ref := client.Collection("Places/" + placeId + "/Tags").Doc("TagList")
+	err := client.RunTransaction(context.Background(), func(ctx context.Context, tx *firestore.Transaction) error {
+
+		doc, err := tx.Get(ref)
+		if err != nil {
+			return err
+		}
+		var tagData types.PlaceRequest
+		_ = doc.DataTo(&tagData)
+
+		fmt.Println(tagData.Tags)
+
+		for tag, updateVal := range tags {
+			if change == true {
+				tagData.Tags[tag] = updateVal
+			} else {
+				tagData.Tags[tag] += updateVal
+			}
+		}
+
+		return tx.Set(ref, map[string]interface{}{
+			"tags": tagData.Tags,
+		}, firestore.Merge(firestore.FieldPath{"tags"}))
+
+	})
+	if status.Code(err) == codes.NotFound {
+		return codes.NotFound
+	}
+	if err != nil {
+		// Handle any errors appropriately in this section.
+		log.Printf("An error has occurred: %s", err)
+		return codes.Aborted
+	}
+
+	return codes.OK
+}
+
 func (s PlaceController) UpdatePlace(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	placeInfo := new(types.PlaceRequest)
 	err := json.Unmarshal(data, placeInfo)
 	if err != nil {
 		log.Printf("Failed removing user: %v", err)
 		return codes.Aborted
+	}
+	tagsUpdated := false
+	if placeInfo.Tags != nil {
+		_ = s.UpdateTags(placeInfo.PlaceId, client, placeInfo.Tags, true)
+		placeInfo.Tags = nil
+		tagsUpdated = true
 	}
 
 	docSnap, err := client.Collection("Places").Doc(placeInfo.PlaceId).Get(ctx)
@@ -115,10 +169,23 @@ func (s PlaceController) UpdatePlace(ctx context.Context, client *firestore.Clie
 	_, err = docSnap.Ref.Update(ctx, utils.ExtractNonEmptyFields(*placeInfo))
 
 	if err != nil {
-		log.Printf("Failed removing user: %v", err)
-		return codes.Aborted
+		if tagsUpdated == false {
+			log.Printf("Failed removing user: %v", err)
+			return codes.NotFound
+		}
 	}
 	return codes.OK
+}
+
+func (s PlaceController) GetTagByPlace(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	placeInfo := new(types.PlaceRequest)
+	_ = json.Unmarshal(data, placeInfo)
+	fmt.Println(placeInfo)
+
+	docSnap, _ := client.Doc("Places/" + placeInfo.PlaceId + "/Tags/TagList").Get(ctx)
+	_ = docSnap.DataTo(placeInfo)
+	jsonStr, _ := json.Marshal(placeInfo.Tags)
+	return jsonStr, codes.OK
 }
 
 func (s PlaceController) checkIfExists(ctx context.Context, client *firestore.Client, id string) bool {
@@ -133,38 +200,48 @@ func (s PlaceController) checkIfExists(ctx context.Context, client *firestore.Cl
 	return false
 }
 
-func (s PlaceController) AddPlaceBatch(ctx context.Context, client *firestore.Client, data []map[string]interface{}) codes.Code {
+func (s PlaceController) AddPlaceBatch(ctx context.Context, client *firestore.Client, data []map[string]interface{}, tags map[string]map[string]float64) codes.Code {
 
 	for _, place := range data {
+		var placeImages []string
+		for _, imgUrl := range place["images"].([]interface{}) {
+			placeImages = append(placeImages, imgUrl.(map[string]interface{})["link"].(string))
+		}
 		placeInfo := types.PlaceRequest{}
 		in := map[string]interface{}{
 			"placeId":      place["place_id"],
 			"placeName":    place["name"],
 			"mainCategory": place["main_category"],
 			"link":         place["link"],
+			"images":       placeImages,
 		}
 		_ = mapstructure.Decode(in, &placeInfo)
 		ref := client.Collection("Places")
-		err := client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 
-			docRef, _ := tx.DocumentRefs(ref).GetAll()
-			docSnaps, _ := tx.GetAll(docRef)
-			for _, s := range docSnaps {
-				if s.Data()["placeId"] == placeInfo.PlaceId {
-					log.Printf("Place with id %s already exists", placeInfo.PlaceId)
-					return os.ErrExist
-				}
+		valMap, _ := place["detailed_reviews"].([]interface{})
+		if len(valMap) > 0 {
+			in["firstReview"] = valMap[0].(map[string]interface{})["review_text"].(string)
+		} else {
+			in["firstReview"] = "No reviews"
+		}
+
+		docSnaps, _ := ref.Documents(ctx).GetAll()
+		for _, s := range docSnaps {
+			if s.Data()["placeId"] == placeInfo.PlaceId {
+				log.Printf("Place with id %s already exists", placeInfo.PlaceId)
 			}
-			err := tx.Create(ref.Doc(placeInfo.PlaceId), in)
+		}
+		_, err := ref.Doc(placeInfo.PlaceId).Create(ctx, in)
 
-			log.Printf("Creating new place with id %s", placeInfo.PlaceId)
+		log.Printf("Creating new place with id %s", placeInfo.PlaceId)
 
-			reviewRef := ref.Doc(placeInfo.PlaceId).Collection("Reviews")
-			valMap, _ := place["detailed_reviews"].([]interface{})
+		reviewRef := ref.Doc(placeInfo.PlaceId).Collection("Reviews")
 
-			err = s.AddReviews(reviewRef, tx, valMap)
+		err = s.AddReviews(reviewRef, valMap)
 
-			return err
+		_, err = ref.Doc(placeInfo.PlaceId).Collection("Tags").Doc("TagList").Create(ctx, map[string]interface{}{
+			"tags":    tags[placeInfo.PlaceId],
+			"placeId": placeInfo.PlaceId,
 		})
 		if status.Code(err) == codes.NotFound {
 			return codes.NotFound
@@ -213,7 +290,7 @@ func (s PlaceController) GetPlaceInfo(ctx context.Context, client *firestore.Cli
 	return jsonStr, codes.OK
 }
 
-func (s PlaceController) AddReviews(ref *firestore.CollectionRef, tx *firestore.Transaction, data []interface{}) error {
+func (s PlaceController) AddReviews(ref *firestore.CollectionRef, data []interface{}) error {
 	for idx, place := range data {
 		if idx >= REVIEW_COUNT {
 			break
@@ -228,7 +305,7 @@ func (s PlaceController) AddReviews(ref *firestore.CollectionRef, tx *firestore.
 			"date":         place["published_at_date"],
 		}
 		_ = mapstructure.Decode(in, &reviewInfo)
-		_ = tx.Create(ref.Doc(reviewInfo.ReviewId), in)
+		_, _ = ref.Doc(reviewInfo.ReviewId).Create(context.Background(), in)
 	}
 	return nil
 }
@@ -260,5 +337,31 @@ func (s PlaceController) GetAllPlaces(ctx context.Context, client *firestore.Cli
 	}
 
 	jsonStr, err := json.Marshal(resp)
+	return jsonStr, codes.OK
+}
+
+func (s PlaceController) GetAllTagVals(ctx context.Context, client *firestore.Client) ([]byte, codes.Code) {
+	docRefs, _ := client.CollectionGroup("Tags").Documents(ctx).GetAll()
+
+	if len(docRefs) == 0 {
+		return []byte{}, codes.OK
+	}
+
+	resp := make(map[string]map[string]float64)
+	for _, docRef := range docRefs {
+		var placeData types.PlaceRequest
+		_ = docRef.DataTo(&placeData)
+		resp[placeData.PlaceId] = placeData.Tags
+	}
+
+	jsonStr, _ := json.Marshal(resp)
+	return jsonStr, codes.OK
+}
+
+func (s PlaceController) GetAllTags() ([]byte, codes.Code) {
+
+	resp := map[string][]string{"all_tags": types.TAGLIST}
+
+	jsonStr, _ := json.Marshal(resp)
 	return jsonStr, codes.OK
 }

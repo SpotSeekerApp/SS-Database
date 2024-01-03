@@ -14,8 +14,8 @@ type HandlerInstance struct {
 	Client          *firestore.Client
 }
 
-const userReqTypes = "user|feedback|favorite|password|filter"
-const placeReqTypes = "place|review|tag"
+const userReqTypes = "user|feedback|favorite|password|filter|review"
+const placeReqTypes = "place|tag"
 
 func (h HandlerInstance) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)

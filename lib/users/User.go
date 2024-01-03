@@ -105,6 +105,85 @@ func (s UserController) FilterPlaces(ctx context.Context, client *firestore.Clie
 	return data, codes.OK
 }
 
+func (s UserController) AddReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	reviewInfo := new(types.ReviewRequest)
+	_ = json.Unmarshal(data, reviewInfo)
+	fmt.Println(reviewInfo)
+
+	ref := client.Collection("Places/" + reviewInfo.PlaceId + "/Reviews").NewDoc()
+	reviewInfo.ReviewId = ref.ID
+	_, err := ref.Create(ctx, map[string]interface{}{
+		"reviewId":     reviewInfo.ReviewId,
+		"reviewerName": reviewInfo.ReviewerName,
+		"rating":       reviewInfo.Rating,
+		"comment":      reviewInfo.Comment,
+		"date":         reviewInfo.Date,
+		"userId":       reviewInfo.UserId,
+		"placeId":      reviewInfo.PlaceId,
+	})
+	if err != nil {
+		log.Fatalf("Failed adding users: %v", err)
+		return codes.Aborted
+	}
+
+	return codes.OK
+}
+
+func (s UserController) GetReviews(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code) {
+	reviewInfo := new(types.ReviewRequest)
+	_ = json.Unmarshal(data, reviewInfo)
+	fmt.Println(reviewInfo)
+
+	q := client.CollectionGroup("Reviews").Where("userId", "==", reviewInfo.UserId)
+	docSnaps, _ := q.Documents(ctx).GetAll()
+
+	resp := map[string]types.ReviewRequest{}
+	for _, docSnap := range docSnaps {
+		var reviewData types.ReviewRequest
+		_ = docSnap.DataTo(&reviewData)
+		resp[reviewData.ReviewId] = reviewData
+	}
+
+	jsonStr, _ := json.Marshal(resp)
+	return jsonStr, codes.OK
+}
+
+func (s UserController) UpdateReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	reviewInfo := new(types.ReviewRequest)
+	err := json.Unmarshal(data, reviewInfo)
+	if err != nil {
+		log.Printf("Failed removing user: %v", err)
+		return codes.Aborted
+	}
+
+	docSnaps, _ := client.CollectionGroup("Reviews").Where("reviewId", "==", reviewInfo.ReviewId).Documents(ctx).GetAll()
+	docSnap := docSnaps[0]
+	if err != nil {
+		log.Printf("Failed removing user: User not found")
+		return codes.NotFound
+	}
+
+	_, err = docSnap.Ref.Update(ctx, utils.ExtractNonEmptyFields(*reviewInfo))
+
+	if err != nil {
+		log.Printf("Failed removing user: %v", err)
+		return codes.Aborted
+	}
+	return codes.OK
+}
+
+func (s UserController) RemoveReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
+	reviewInfo := new(types.ReviewRequest)
+	fmt.Println(reviewInfo)
+	_ = json.Unmarshal(data, reviewInfo)
+
+	docSnaps, _ := client.CollectionGroup("Reviews").Where("reviewId", "==", reviewInfo.ReviewId).Documents(ctx).GetAll()
+	docSnap := docSnaps[0]
+	docSnap.Ref.Delete(ctx)
+
+	return codes.OK
+}
+
 func (s UserController) AddUser(ctx context.Context, client *firestore.Client, data []byte) codes.Code {
 	userInfo := new(types.UserRequest)
 	_ = json.Unmarshal(data, userInfo)

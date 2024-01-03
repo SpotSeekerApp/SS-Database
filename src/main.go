@@ -73,6 +73,10 @@ func main() {
 	http.HandleFunc("/GetFeedbacks", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/AddFavoritePlace", app.HandlerIns.HandleRequest)
 	http.HandleFunc("/RemoveFavoritePlace", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/AddReview", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/GetReviews", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/UpdateReview", app.HandlerIns.HandleRequest)
+	http.HandleFunc("/RemoveReview", app.HandlerIns.HandleRequest)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")

@@ -150,9 +150,10 @@ func ExtractNonEmptyFields(s any) []firestore.Update {
 			continue
 		}
 		val := structValues.Field(i).Interface()
+		_, isInt := val.(int)
 		_, isString := val.(string)
 		valMap, isMap := val.(map[string]interface{})
-		if (isString && val != "") || (isMap && len(valMap) != 0) {
+		if (isString && val != "") || (isMap && len(valMap) != 0) || isInt {
 			ret = append(ret, firestore.Update{
 				Path:  strings.ToLower(string(key[0])) + key[1:],
 				Value: val,

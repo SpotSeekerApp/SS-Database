@@ -23,6 +23,10 @@ type UserInterface interface {
 	GetAllUsers(ctx context.Context, client *firestore.Client) ([]byte, codes.Code)
 	FilterPlaces(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
 	GetFeedbacks(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	AddReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code
+	GetReviews(ctx context.Context, client *firestore.Client, data []byte) ([]byte, codes.Code)
+	UpdateReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code
+	RemoveReview(ctx context.Context, client *firestore.Client, data []byte) codes.Code
 }
 
 func (h HandlerInstance) UserHandler(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +57,8 @@ func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request,
 	var req any
 	if function == "AddFeedback" {
 		req = new(types.FeedbackRequest)
+	} else if strings.Contains(function, "Review") {
+		req = new(types.ReviewRequest)
 	} else {
 		req = new(types.UserRequest)
 	}
@@ -76,6 +82,12 @@ func (h HandlerInstance) POSTUserHandler(w http.ResponseWriter, r *http.Request,
 		err = utils.MapErrorCode(h.UserController.RemoveFavoritePlace(context.Background(), h.Client, data))
 	} else if function == "AddFeedback" {
 		err = utils.MapErrorCode(h.UserController.AddFeedback(context.Background(), h.Client, data))
+	} else if function == "AddReview" {
+		err = utils.MapErrorCode(h.UserController.AddReview(context.Background(), h.Client, data))
+	} else if function == "UpdateReview" {
+		err = utils.MapErrorCode(h.UserController.UpdateReview(context.Background(), h.Client, data))
+	} else if function == "RemoveReview" {
+		err = utils.MapErrorCode(h.UserController.RemoveReview(context.Background(), h.Client, data))
 	} else {
 		return http.StatusNotImplemented
 	}
@@ -112,6 +124,13 @@ func (h HandlerInstance) GETUserHandler(w http.ResponseWriter, r *http.Request, 
 		data, _ := json.Marshal(req)
 		fmt.Println(req)
 		resTemp, errTemp := h.UserController.GetFeedbacks(context.Background(), h.Client, data)
+		err = utils.MapErrorCode(errTemp)
+		res = resTemp
+	} else if function == "GetReviews" {
+		req["user_id"] = r.URL.Query()["user_id"][0]
+		data, _ := json.Marshal(req)
+		fmt.Println(req)
+		resTemp, errTemp := h.UserController.GetReviews(context.Background(), h.Client, data)
 		err = utils.MapErrorCode(errTemp)
 		res = resTemp
 	} else {

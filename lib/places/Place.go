@@ -219,8 +219,21 @@ func (s PlaceController) AddPlaceBatch(ctx context.Context, client *firestore.Cl
 		ref := client.Collection("Places")
 
 		valMap, _ := place["detailed_reviews"].([]interface{})
-		if len(valMap) > 0 {
-			in["firstReview"] = valMap[0].(map[string]interface{})["review_text"].(string)
+		clearReviews := make([]interface{}, 0)
+		for _, review := range valMap {
+			_, isString := review.(map[string]interface{})["review_translated_text"].(string)
+			if isString || review.(map[string]interface{})["review_text"].(string) != "" {
+				clearReviews = append(clearReviews, review)
+			}
+		}
+
+		if len(clearReviews) > 0 {
+			translated, isString := clearReviews[0].(map[string]interface{})["review_translated_text"].(string)
+			if isString {
+				in["firstReview"] = translated
+			} else {
+				in["firstReview"] = clearReviews[0].(map[string]interface{})["review_text"].(string)
+			}
 		} else {
 			in["firstReview"] = "No reviews"
 		}
@@ -237,7 +250,7 @@ func (s PlaceController) AddPlaceBatch(ctx context.Context, client *firestore.Cl
 
 		reviewRef := ref.Doc(placeInfo.PlaceId).Collection("Reviews")
 
-		err = s.AddReviews(reviewRef, valMap)
+		err = s.AddReviews(reviewRef, clearReviews)
 
 		_, err = ref.Doc(placeInfo.PlaceId).Collection("Tags").Doc("TagList").Create(ctx, map[string]interface{}{
 			"tags":    tags[placeInfo.PlaceId],
@@ -297,11 +310,18 @@ func (s PlaceController) AddReviews(ref *firestore.CollectionRef, data []interfa
 		}
 		place, _ := place.(map[string]interface{})
 		reviewInfo := types.ReviewRequest{}
+		var comment interface{}
+		_, isString := place["review_translated_text"].(string)
+		if isString {
+			comment = place["review_translated_text"]
+		} else {
+			comment = place["review_text"]
+		}
 		in := map[string]interface{}{
 			"reviewId":     place["review_id"],
 			"reviewerName": place["reviewer_name"],
 			"rating":       place["rating"],
-			"comment":      place["review_text"],
+			"comment":      comment,
 			"date":         place["published_at_date"],
 		}
 		_ = mapstructure.Decode(in, &reviewInfo)

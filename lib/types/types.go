@@ -58,9 +58,11 @@ type PlaceRequest struct {
 }
 
 type ReviewRequest struct {
-	ReviewId     string  `json:"review_id"`
-	ReviewerName string  `json:"reviewer_name"`
-	Rating       float32 `json:"rating"`
-	Comment      string  `json:"comment"`
-	Date         string  `json:"date"`
+	ReviewId     string `json:"review_id" firebase:"reviewId"`
+	ReviewerName string `json:"reviewer_name" firebase:"reviewerName"`
+	Rating       int    `json:"rating" firebase:"rating"`
+	Comment      string `json:"comment" firebase:"comment"`
+	Date         string `json:"date" firebase:"date"`
+	UserId       string `json:"user_id" firebase:"userId"`
+	PlaceId      string `json:"place_id" firebase:"placeId"`
 }

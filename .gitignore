@@ -160,3 +160,4 @@ cython_debug/
 *.exe
 .idea*
 credential-token.json
+api-key.json
